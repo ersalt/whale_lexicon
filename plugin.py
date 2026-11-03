@@ -24,14 +24,23 @@ from app.sdk import Command, CommandContext, Extension, HookContext, PluginConte
 
 from .core import wiki as wiki_sync
 from .core.matcher import format_hint, format_wiki, match_wiki
-from .core.miner import Miner
+from .core.miner import Miner, bind_logger
 from .core.service import SlangError, SlangService
 from .core.store import TABLES, JargonStore
 
-log = logging.getLogger(__name__)
+
+class _LogProxy:
+    """插件日志代理：优先用 ctx.log（自动带 前缀），没就绪时退回模块 logger。"""
+
+    def __getattr__(self, name):
+        target = _CONTEXT.log if _CONTEXT is not None else logging.getLogger(__name__)
+        return getattr(target, name)
+
+
+log = _LogProxy()
 
 HERE = Path(__file__).resolve().parent
-VERSION = "0.3.3"
+VERSION = "0.4.0"
 
 router = APIRouter()
 _CONTEXT: PluginContext | None = None
@@ -295,7 +304,7 @@ async def delete_entry(body: dict | None = None) -> JSONResponse:
         except SlangError:
             continue
         except Exception as exc:  # noqa: BLE001
-            log.warning("[鲸语汇] 删除失败 %s", name, exc_info=True)
+            log.warning("删除失败 %s", name, exc_info=True)
             return _fail(f"删除失败：{exc}", 500)
         return JSONResponse({"ok": True, "message": f"已删除「{name}」",
                              "stats": _SERVICE.stats()})
@@ -318,7 +327,7 @@ async def approve(body: dict | None = None) -> JSONResponse:
         except SlangError:
             continue
         except Exception as exc:  # noqa: BLE001
-            log.warning("[鲸语汇] 审核失败 %s", name, exc_info=True)
+            log.warning("审核失败 %s", name, exc_info=True)
             return _fail(f"审核失败：{exc}", 500)
         action = "通过" if candidate.endswith("_pending") else "驳回"
         return JSONResponse({"ok": True, "message": f"「{name}」已{action}",
@@ -374,7 +383,7 @@ async def wiki_sync_now(body: dict | None = None) -> JSONResponse:
         res = await asyncio.to_thread(
             wiki_sync.sync, _STORE, 30, 0.4, 20 if full else 40, full, log.info)
     except Exception as exc:  # noqa: BLE001 - 网络问题直接告诉用户
-        log.warning("[鲸语汇] 梗百科同步失败", exc_info=True)
+        log.warning("梗百科同步失败", exc_info=True)
         return _fail(f"同步失败：{exc}", 502)
     if _BOT is not None:
         _BOT.reload_wiki_keys()
@@ -417,7 +426,7 @@ class LexiconPlugin(Extension):
                 if row["n"] >= frequency:
                     self._pending[row["scope"]] = time.time()
         except Exception:  # noqa: BLE001
-            log.debug("[鲸语汇] 扫描缓冲区失败", exc_info=True)
+            log.debug("扫描缓冲区失败", exc_info=True)
         if self._pending:
             self._ensure_scheduler()
         self._wiki_task = self._spawn(self._wiki_loop())
@@ -443,7 +452,7 @@ class LexiconPlugin(Extension):
             except asyncio.CancelledError:
                 return
             except Exception:  # noqa: BLE001
-                log.warning("[鲸语汇] 梗百科定时任务异常", exc_info=True)
+                log.warning("梗百科定时任务异常", exc_info=True)
 
     async def _maybe_sync_wiki(self) -> None:
         if not _flag("wiki_sync_enable", False) or not _flag("wiki_enable"):
@@ -461,7 +470,7 @@ class LexiconPlugin(Extension):
         try:
             res = await asyncio.to_thread(wiki_sync.sync, _STORE, 30, 0.5, 0, False, log.info)
             self.reload_wiki_keys()
-            log.info("[鲸语汇] 梗百科自动同步完成：%s", res)
+            log.info("梗百科自动同步完成：%s", res)
         finally:
             self._wiki_running = False
 
@@ -493,7 +502,7 @@ class LexiconPlugin(Extension):
         try:
             count = _STORE.buffer_add(ctx.session_key, speaker, text)
         except Exception:  # noqa: BLE001
-            log.warning("[鲸语汇] 写缓冲失败", exc_info=True)
+            log.warning("写缓冲失败", exc_info=True)
             return
         self._note_scope(ctx)
         frequency = _num("learn_frequency", 50, 5, 10000)
@@ -513,7 +522,7 @@ class LexiconPlugin(Extension):
             _STORE.note_scope(key, name)
             self._named.add(key)
         except Exception:  # noqa: BLE001 - 记名字失败不影响主流程
-            log.debug("[鲸语汇] 记群名失败 %s", key, exc_info=True)
+            log.debug("记群名失败 %s", key, exc_info=True)
 
     async def after_reply(self, ctx: HookContext, text: str) -> str:
         """记下最后一次回复时间：学习调度靠它判断这个群是不是闲下来了。"""
@@ -573,7 +582,7 @@ class LexiconPlugin(Extension):
         try:
             hits = _SERVICE.match(text, ctx.session_key, limit=limit)
         except Exception:  # noqa: BLE001
-            log.warning("[鲸语汇] 索引匹配失败", exc_info=True)
+            log.warning("索引匹配失败", exc_info=True)
             hits = []
         if hits:
             for hit in hits:
@@ -590,14 +599,14 @@ class LexiconPlugin(Extension):
                     hint = format_wiki(_STORE.wiki_get(titles[0])) if _STORE else ""
                     tag = f"梗 {titles[0]}"
             except Exception:  # noqa: BLE001
-                log.warning("[鲸语汇] 梗库查询失败", exc_info=True)
+                log.warning("梗库查询失败", exc_info=True)
 
         if not hint:
             stats["no_hit"] += 1
             return None
         stats["hits"] += 1
         stats["last"] = f"{tag} @ {time.strftime('%H:%M:%S')}"
-        log.info("[鲸语汇] 注入 %s", tag)
+        log.info("注入 %s", tag)
         return hint
 
     # ---------- 学习调度 ----------
@@ -651,7 +660,7 @@ class LexiconPlugin(Extension):
             except asyncio.CancelledError:
                 return
             except Exception:  # noqa: BLE001
-                log.exception("[鲸语汇] 学习调度异常")
+                log.exception("学习调度异常")
                 await asyncio.sleep(max(5, gap))
 
     async def _learn(self, scope: str, rows: list[dict] | None = None) -> int | None:
@@ -667,7 +676,7 @@ class LexiconPlugin(Extension):
             miner = Miner(_CONTEXT.services.get("llm"), _settings(), _SERVICE)
             saved = await miner.learn(scope, rows)
         except Exception:  # noqa: BLE001 - 学失败保留缓冲，5 分钟后再试
-            log.exception("[鲸语汇] %s 学习异常，缓冲保留", scope)
+            log.exception("%s 学习异常，缓冲保留", scope)
             self._cooldown[scope] = time.time() + 300
             return None
         finally:
@@ -675,10 +684,10 @@ class LexiconPlugin(Extension):
 
         if saved is None:
             self._cooldown[scope] = time.time() + 300
-            log.warning("[鲸语汇] %s 学习未完成，缓冲保留，5 分钟后重试", scope)
+            log.warning("%s 学习未完成，缓冲保留，5 分钟后重试", scope)
             return None
         _STORE.buffer_delete([row["id"] for row in rows])
-        log.info("[鲸语汇] %s 本轮入库 %d 条，清掉 %d 条缓冲", scope, saved, len(rows))
+        log.info("%s 本轮入库 %d 条，清掉 %d 条缓冲", scope, saved, len(rows))
         if _STORE.buffer_count(scope) >= frequency:
             self._pending[scope] = time.time()
         return saved
@@ -707,10 +716,12 @@ class LexiconPlugin(Extension):
 def setup(ctx: PluginContext) -> LexiconPlugin | None:
     global _CONTEXT, _STORE, _SERVICE, _BOT
     _CONTEXT = ctx
+    # core/ 里的纯逻辑模块不碰 SDK，把 logger 注入进去，日志前缀才统一
+    bind_logger(ctx.log)
 
     llm = ctx.services.get("llm")
     if llm is None:
-        log.error("[鲸语汇] 缺少 llm 服务，无法学习")
+        ctx.log.error("缺少 llm 服务，无法学习")
         return None
 
     db_path = (ctx.data_dir or HERE) / "jargon.db"
@@ -720,9 +731,9 @@ def setup(ctx: PluginContext) -> LexiconPlugin | None:
     plugin = LexiconPlugin()
     _BOT = plugin
     stats = _SERVICE.stats()
-    log.info("[鲸语汇] 已就绪：词条 %d（手动 %d · 自动 %d），待审 %d，梗库 %d，数据库 %s",
-             stats["total"], stats["manual"], stats["auto"], stats["pending"],
-             _STORE.wiki_count(), db_path)
+    ctx.log.info("已就绪：词条 %d（手动 %d · 自动 %d），待审 %d，梗库 %d，数据库 %s",
+                 stats["total"], stats["manual"], stats["auto"], stats["pending"],
+                 _STORE.wiki_count(), db_path)
     return plugin
 
 

@@ -19,6 +19,12 @@ import re
 
 log = logging.getLogger(__name__)
 
+
+def bind_logger(logger) -> None:
+    """由插件在 setup 时注入 ctx.log：日志前缀 `[鲸语汇]` 由它统一加。"""
+    global log
+    log = logger
+
 EXTRACT_PROMPT = """你在整理一个 QQ 群的黑话表。下面是从这个群抓的一段聊天。
 
 只输出 JSON 数组，不要解释，不要 markdown 代码块。没有黑话就输出 []。
@@ -187,21 +193,21 @@ class Miner:
         try:
             return await self._call(prompt, extra or {})
         except asyncio.TimeoutError:
-            log.warning("[鲸语汇] 模型调用超时（%ss），本批跳过", self.batch_timeout)
+            log.warning("模型调用超时（%ss），本批跳过", self.batch_timeout)
             return ""
         except Exception as exc:  # noqa: BLE001
             # 关思考的参数后端不认：去掉重试一次，之后不再试
             if extra and mode not in self._no_think_blocked:
                 self._no_think_blocked.add(mode)
-                log.info("[鲸语汇] 模型不认「%s」的关思考参数，回退普通请求：%s", mode, exc)
+                log.info("模型不认「%s」的关思考参数，回退普通请求：%s", mode, exc)
                 try:
                     return await self._call(prompt, {})
                 except asyncio.TimeoutError:
-                    log.warning("[鲸语汇] 模型调用超时（%ss），本批跳过", self.batch_timeout)
+                    log.warning("模型调用超时（%ss），本批跳过", self.batch_timeout)
                 except Exception as retry:
-                    log.warning("[鲸语汇] 模型调用失败：%s", retry)
+                    log.warning("模型调用失败：%s", retry)
                 return ""
-            log.warning("[鲸语汇] 模型调用失败：%s", exc)
+            log.warning("模型调用失败：%s", exc)
             return ""
 
     # ---------- 主流程 ----------
@@ -213,7 +219,7 @@ class Miner:
                    for i in range(0, len(messages), self.batch_size)]
         candidates: dict[str, dict] = {}
         failed = 0
-        log.info("[鲸语汇] %s 开始学习：%d 条 / %d 批", scope, len(messages), len(batches))
+        log.info("%s 开始学习：%d 条 / %d 批", scope, len(messages), len(batches))
 
         for index, batch in enumerate(batches):
             text = "\n".join(f"{m['sender']}: {m['text']}" for m in batch)[-4000:]
@@ -223,7 +229,7 @@ class Miner:
             items = parse_json(raw)
             if not isinstance(items, list):
                 failed += 1
-                log.warning("[鲸语汇] %s 第 %d/%d 批解析失败", scope, index + 1, len(batches))
+                log.warning("%s 第 %d/%d 批解析失败", scope, index + 1, len(batches))
             else:
                 self._merge_candidates(candidates, items)
             if index < len(batches) - 1 and self.batch_delay:
@@ -232,10 +238,10 @@ class Miner:
                 on_progress(index + 1, len(batches))
 
         if failed and failed == len(batches):
-            log.warning("[鲸语汇] %s 全部 %d 批失败，保留缓冲稍后重试", scope, len(batches))
+            log.warning("%s 全部 %d 批失败，保留缓冲稍后重试", scope, len(batches))
             return None
         if not candidates:
-            log.info("[鲸语汇] %s 本轮没提取到条目", scope)
+            log.info("%s 本轮没提取到条目", scope)
             return 0
 
         kept = self._prefilter(scope, list(candidates.values()))
@@ -259,9 +265,9 @@ class Miner:
                 contributor=self._contributor(messages, item["name"]),
             )
             saved += 1
-            log.info("[鲸语汇] %s %s：%s = %s",
+            log.info("%s %s：%s = %s",
                      scope, "直接入库" if certain else "进待审", item["name"], item["meaning"])
-        log.info("[鲸语汇] %s 学习完成：候选 %d，入库 %d，失败批 %d",
+        log.info("%s 学习完成：候选 %d，入库 %d，失败批 %d",
                  scope, len(candidates), saved, failed)
         return saved
 
@@ -295,10 +301,10 @@ class Miner:
             if not (2 <= len(item["name"]) <= 12):
                 continue
             if item["name"].casefold() in self.reject_words:
-                log.info("[鲸语汇] %s 命中拒绝词，丢弃：%s", scope, item["name"])
+                log.info("%s 命中拒绝词，丢弃：%s", scope, item["name"])
                 continue
             if is_low_value(item["name"], item["meaning"]):
-                log.info("[鲸语汇] %s 过滤无信息量 ID 词条：%s", scope, item["name"])
+                log.info("%s 过滤无信息量 ID 词条：%s", scope, item["name"])
                 continue
             kept.append(item)
         return kept
@@ -318,7 +324,7 @@ class Miner:
                     continue
                 out[name] = (bool(row.get("certain")), clean_meaning(row.get("reason"), 30))
         if not out:
-            log.warning("[鲸语汇] 自审结果解析失败，全部进待审")
+            log.warning("自审结果解析失败，全部进待审")
         return out
 
     @staticmethod
@@ -371,6 +377,6 @@ def _parse_extra(raw) -> dict:
     try:
         value = json.loads(text)
     except (TypeError, ValueError):
-        log.warning("[鲸语汇] 自定义请求参数不是合法 JSON，忽略：%s", text)
+        log.warning("自定义请求参数不是合法 JSON，忽略：%s", text)
         return {}
     return value if isinstance(value, dict) else {}

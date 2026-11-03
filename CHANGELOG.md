@@ -1,5 +1,15 @@
 # 鲸语汇
 
+## 0.4.0
+
+跟着主程序的插件规范（`docs/plugin-spec.md`）收了一遍：
+
+- 日志改用 `ctx.log`：`[鲸语汇]` 前缀由运行时统一加，代码里不再手写，
+  文件日志里的 logger 名也从 `qqbotlite_plugin_whale_lexicon.core.miner` 变成 `plugin.whale_lexicon`
+- `core/` 里的模块通过 `bind_logger()` 接同一个 logger，前缀不会再漏
+- 补 `tests/test_core.py`：作用域转换、关思考参数、低价值过滤、词库增删审、按群匹配
+- `python -m app.pluginkit.check` 通过
+
 ## 0.3.3
 
 - 面板加回「设置」按钮，点开是页内的设置弹窗（读主面板的 `/api/plugins/<id>/settings`，
