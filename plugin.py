@@ -18,8 +18,7 @@ from pathlib import Path
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 
-from app.pluginkit.manifest import PluginContext
-from app.pluginkit.registry import Extension, HookContext
+from app.sdk import Command, CommandContext, Extension, HookContext, PluginContext
 
 from .core.matcher import format_hint
 from .core.miner import Miner
@@ -222,3 +221,69 @@ def setup(ctx: PluginContext) -> LexiconPlugin | None:
 
 
 
+
+
+# ---------- 命令：/yh xxx ----------
+
+HELP = (
+    "鲸语汇：\n"
+    "/yh list [关键词]  看待审词条\n"
+    "/yh approve 名字   通过（管理员）\n"
+    "/yh del 名字       删除（管理员）\n"
+    "/yh learn          立刻学一批\n"
+    "/yh stats          看统计"
+)
+
+
+async def _handle_yh(cmd: CommandContext) -> str:
+    if _SERVICE is None or _STORE is None:
+        return "鲸语汇还没就绪"
+    sub = (cmd.args[0] if cmd.args else "").lower()
+    rest = cmd.args[1:]
+
+    if sub in ("", "help"):
+        return HELP
+
+    if sub == "stats":
+        data = _SERVICE.stats() or {}
+        return f"词条 {data.get('total', 0)} 条（手动 {data.get('manual', 0)} / 自动 {data.get('auto', 0)}），待审 {data.get('pending', 0)}"
+
+    if sub == "list":
+        search = " ".join(rest)
+        items = _SERVICE.list_entries("pending", search=search)
+        if not items:
+            return "待审池是空的"
+        lines = [f"待审 {len(items)} 条："]
+        for item in items[:10]:
+            lines.append(f"· {item['name']}：{item['meaning'][:24]}")
+        if len(items) > 10:
+            lines.append(f"……还有 {len(items) - 10} 条，去面板看")
+        return "\n".join(lines)
+
+    if sub in ("approve", "deny", "del", "delete"):
+        if not cmd.is_admin:
+            return "这条命令只有管理员能用"
+        name = rest[0] if rest else ""
+        if not name:
+            return f"用法：/yh {sub} 名字"
+        for table in ("auto_pending", "manual_pending", "auto", "manual"):
+            try:
+                if sub == "approve":
+                    _SERVICE.approve(table, name, "")
+                    return f"已通过「{name}」"
+                _SERVICE.delete(table, name, "")
+                return f"已删除「{name}」"
+            except Exception:  # noqa: BLE001 - 表里没有就试下一张
+                continue
+        return f"没找到「{name}」"
+
+    if sub == "learn":
+        if _BOT is None:
+            return "鲸语汇还没就绪"
+        added = await _BOT.learn_once(None, force=True)
+        return f"学完了，新增 {added} 条待审" if added else "这批不够数，没学到新词"
+
+    return HELP
+
+
+COMMANDS = [Command("yh", handler=_handle_yh, help="群语汇：/yh help")]
