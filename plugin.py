@@ -31,13 +31,14 @@ from .core.store import TABLES, JargonStore
 log = logging.getLogger(__name__)
 
 HERE = Path(__file__).resolve().parent
-VERSION = "0.3.0"
+VERSION = "0.3.1"
 
 router = APIRouter()
 _CONTEXT: PluginContext | None = None
 _STORE: JargonStore | None = None
 _SERVICE: SlangService | None = None
 _BOT: "LexiconPlugin | None" = None
+_MODELS: dict = {"at": 0.0, "items": []}
 
 
 # ---------------- 配置读取 ----------------
@@ -103,6 +104,22 @@ def _clean_scope(value) -> str:
     return "" if scope in ("__global__", "global") else scope
 
 
+async def _local_models(llm) -> list[str]:
+    """模型服务上有哪些模型（下拉框选项）。60 秒缓存，连不上就返回空。"""
+    if llm is None:
+        return []
+    now = time.time()
+    if now - _MODELS["at"] < 60:
+        return _MODELS["items"]
+    try:
+        items = await asyncio.wait_for(llm.list_models(), timeout=2.0)
+        items = [str(item) for item in items][:50]
+    except Exception:  # noqa: BLE001 - 连不上就当没有，字段退回输入框
+        items = []
+    _MODELS.update({"at": now, "items": items})
+    return items
+
+
 # ---------------- 面板接口 ----------------
 # 统一返回 {ok, message, ...}；页面对 4xx 也会解析 body，不吞错误。
 
@@ -142,13 +159,14 @@ async def tree() -> JSONResponse:
                  "count": s["count"]} for s in scopes]
 
     manual, auto, pending = _SERVICE.tree_counts()
+    # 顺序跟原插件一致：手动（知识库）→ 黑话库（学来的）→ 待审（审查）→ 梗百科（兜底）
     buckets = [
-        {"key": "pending", "label": "待审", "count": pending,
-         "subs": subs(_SERVICE.pending_scopes())},
-        {"key": "auto", "label": "黑话库", "count": auto,
-         "subs": subs(_SERVICE.scopes_of("auto"))},
         {"key": "manual", "label": "手动", "count": manual,
          "subs": subs(_SERVICE.scopes_of("manual"))},
+        {"key": "auto", "label": "黑话库", "count": auto,
+         "subs": subs(_SERVICE.scopes_of("auto"))},
+        {"key": "pending", "label": "待审", "count": pending,
+         "subs": subs(_SERVICE.pending_scopes())},
     ]
     if _flag("wiki_enable"):
         buckets.append({"key": "wiki", "label": "梗百科", "count": _STORE.wiki_count(),
@@ -502,6 +520,26 @@ class LexiconPlugin(Extension):
         self._last_reply[ctx.session_key] = time.time()
         return text
 
+    # ---------- 设置面板的兜底渲染 ----------
+
+    async def settings_fields(self, ctx, fields: list[dict]) -> list[dict] | None:
+        """能连上模型服务时，「学习用的模型」从输入框变成下拉框。
+
+        这就是插件设置面板的兜底接口：默认按 plugin.toml 里声明的字段渲染，
+        想补动态选项/按状态改布局，在这里改字段就行；返回 None 表示不动。
+        """
+        models = await _local_models(ctx.services.get("llm"))
+        if not models:
+            return fields
+        for field in fields:
+            if field.get("key") != "learn_model":
+                continue
+            field["type"] = "options"
+            field["options"] = [""] + models
+            field["labels"] = ["跟主模型一致"] + models
+            field["help"] = "留空 = 跟聊天用同一个模型；下拉列表来自当前连着的模型服务"
+        return fields
+
     # ---------- 注入 ----------
 
     def reload_wiki_keys(self) -> None:
@@ -819,3 +857,4 @@ async def _handle_yh(cmd: CommandContext) -> str:
 
 
 COMMANDS = [Command("yh", handler=_handle_yh, help="群语汇：/yh help", admin=True)]
+

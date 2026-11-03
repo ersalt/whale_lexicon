@@ -73,25 +73,49 @@ whale_lexicon/
 |---|---|---|
 | 基础 | `enabled` / `listen_private` / `blacklist_groups` | 总开关、是否管私聊、屏蔽的群 |
 | 自动学习 | `auto_learn` / `learn_frequency` / `learn_idle_seconds` / `learn_force_multiplier` / `learn_group_gap_seconds` / `learn_batch_size` / `learn_batch_delay_ms` / `learn_batch_timeout` / `extract_max` | 什么时候学、怎么分批 |
-| 自动学习 | `extract_extra_json` / `review_extra_json` | 请求附加参数，默认提取关思考、自审保思考 |
+| 自动学习 | `learn_model` | 学习用哪个模型，留空跟聊天一样 |
+| 自动学习 | `extract_thinking` / `review_thinking` | 提取、自审各自怎么关思考（下拉） |
+| 自动学习 | `extract_extra_body` / `review_extra_body` | 只有选「自定义」才出现，填 JSON |
 | 注入 | `inject_max` / `max_meaning_chars` | 注入几条、单条多长 |
 | 候选过滤 | `reject_words` | 名字命中就丢，不送自审 |
 | 梗百科 | `wiki_enable` / `wiki_sync_enable` / `wiki_sync_time` / `wiki_sync_interval_days` | 侧栏分类、定时同步 |
 
-提取默认带 `{"reasoning_effort": "none"}`：同一段聊天实测 11.8 秒 → 1.8 秒，
-提取质量看不出差别；后端不吃这个参数就把那一格清空。想换个更小的模型专门提取，
-直接在里面加 `"model": "qwen3-8b"`，只影响学习和自审，聊天用的还是主模型。
+### 关思考：跟原插件同一套七档
+
+| 选项 | 行为 |
+|---|---|
+| 自动识别（提取默认） | 按模型名猜参数；猜不到按 OpenAI 兼容处理 |
+| 不处理 | 保持思考 |
+| OpenAI / LM Studio | `reasoning_effort: "none"` |
+| GLM | `thinking.type = disabled` |
+| Gemini | `gm_thinking_config.budget = 0` |
+| DeepSeek | 试 `reasoning_effort: "none"`，建议同时换 `deepseek-chat` |
+| 自定义 | 显示 JSON 输入框，填什么发什么 |
+
+- 只有选「自定义」才显示 JSON 输入框
+- 后端不认这个参数：自动去掉重试一次，之后不再试，聊天不受影响
+- 提取默认关思考、自审默认保持思考，形成混合模式；两者分开配
+- 本机 LM Studio 实测：同一段聊天 11.8 秒 → 1.8 秒
+- 想用更小的模型专跑学习：`learn_model` 选一个（下拉列表来自当前连着的模型服务）
+
+`learn_model` 那个下拉就是插件设置面板的**兜底接口**在起作用：`plugin.toml` 里声明的
+只是普通输入框，`settings_fields()` 在打开设置时去问模型服务要列表，拿到才换成下拉；
+连不上或者接口出错，照旧是输入框。
+
 
 ## 面板
 
 访问 `/plugins/whale_lexicon/`。左栏是分类和按群展开的词条数，
 右栏是列表 + 搜索 + 排序 + 录入，操作都在行内。
 
-![待审](docs/panel.png)
+![手动](docs/panel.png)
 
-- 待审：模型拿不准的，逐条「通过」进黑话库
-- 黑话库：确定过的，参与注入；「驳回」退回待审
+顺序跟原插件一致：**手动**（知识库）→ **黑话库**（学来的）→ **待审**（审查）→ **梗百科**（兜底），
+默认落在「手动」。
+
 - 手动：自己录的，优先级最高
+- 黑话库：模型确定过的，参与注入；「驳回」退回待审
+- 待审：模型拿不准的，逐条「通过」进黑话库
 - 梗百科：cnmeme.wiki 的公开词条，只读，纯查词用
 
 ![梗百科](docs/panel-wiki.png)

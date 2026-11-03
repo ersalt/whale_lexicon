@@ -1,6 +1,6 @@
 title = "鲸语汇"
 description = "群黑话自学习：从群聊里提取、模型自审、按群隔离，命中时注入提示词。"
-version = "0.3.0"
+version = "0.3.1"
 author = "贰叔"
 panel = "/plugins/whale_lexicon"
 
@@ -130,22 +130,59 @@ group = "learning"
 group_label = "自动学习"
 
 [[config]]
-key = "extract_extra_json"
-label = "提取请求附加参数"
-type = "text"
-default = "{\"reasoning_effort\": \"none\"}"
-group = "learning"
-group_label = "自动学习"
-help = "JSON，合进提取请求。默认关掉思考：本机实测同样一段聊天 11.8 秒变 1.8 秒，提取质量看不出差别；也能顺手换模型，例如 {\"model\": \"qwen3-8b\", \"reasoning_effort\": \"none\"}；后端不吃这个参数就清空"
-
-[[config]]
-key = "review_extra_json"
-label = "自审请求附加参数"
+key = "learn_model"
+label = "学习用的模型"
 type = "text"
 default = ""
 group = "learning"
 group_label = "自动学习"
-help = "JSON，合进自审请求。默认留空 = 保持思考，判断「含义够不够具体」时更稳"
+help = "留空 = 跟聊天用同一个模型。能连上模型服务时这里会变成下拉框；想用更小的模型专跑学习就选一个"
+
+[[config]]
+key = "extract_thinking"
+label = "学习时怎么关思考"
+type = "options"
+default = "auto"
+options = ["auto", "off", "openai", "glm", "gemini", "deepseek", "custom"]
+labels = ["自动识别", "不处理（保持思考）", "OpenAI / LM Studio", "GLM", "Gemini", "DeepSeek", "自定义"]
+group = "learning"
+group_label = "自动学习"
+help = "auto 按模型名猜参数；后端不认这个参数会自动退回普通请求，聊天不受影响"
+
+[[config]]
+key = "extract_extra_body"
+label = "自定义请求参数"
+type = "text"
+multiline = true
+rows = 3
+default = ""
+group = "learning"
+group_label = "自动学习"
+show_if = { key = "extract_thinking", value = "custom" }
+help = "只在选「自定义」时生效。示例：{\"reasoning_effort\": \"none\"}"
+
+[[config]]
+key = "review_thinking"
+label = "自审时怎么关思考"
+type = "options"
+default = "off"
+options = ["auto", "off", "openai", "glm", "gemini", "deepseek", "custom"]
+labels = ["自动识别", "保持思考（推荐）", "OpenAI / LM Studio", "GLM", "Gemini", "DeepSeek", "自定义"]
+group = "learning"
+group_label = "自动学习"
+help = "默认保持思考：判断「含义够不够具体」时更稳，跟提取分开配"
+
+[[config]]
+key = "review_extra_body"
+label = "自审自定义请求参数"
+type = "text"
+multiline = true
+rows = 3
+default = ""
+group = "learning"
+group_label = "自动学习"
+show_if = { key = "review_thinking", value = "custom" }
+help = "只在自审选「自定义」时生效，格式同提取那一格"
 
 # ---------- 注入 ----------
 
@@ -221,3 +258,4 @@ default = 7
 group = "wiki"
 group_label = "梗百科"
 show_if = { key = "wiki_enable", value = true }
+

@@ -146,30 +146,63 @@ class Miner:
         self.batch_size = max(3, int(settings.get("learn_batch_size") or 15))
         self.batch_delay = max(0, int(settings.get("learn_batch_delay_ms") or 600)) / 1000
         self.batch_timeout = max(30, int(settings.get("learn_batch_timeout") or 300))
-        # 提取关思考（实测 11.8s → 1.8s），自审保持思考（判断质量更稳），和原插件默认一致
-        self.extract_extra = _parse_extra(settings.get("extract_extra_json"),
-                                          '{"reasoning_effort": "none"}')
-        self.review_extra = _parse_extra(settings.get("review_extra_json"), "")
+        self.model = str(settings.get("learn_model") or "").strip()
+        # 提取默认关思考、自审默认保持思考，和原插件一致
+        hint = self._model_hint()
+        self.extract_mode = _think_mode(settings.get("extract_thinking"), "auto")
+        self.review_mode = _think_mode(settings.get("review_thinking"), "off")
+        self.extract_extra = resolve_thinking(
+            self.extract_mode, settings.get("extract_extra_body"), hint)
+        self.review_extra = resolve_thinking(
+            self.review_mode, settings.get("review_extra_body"), hint)
+        self._no_think_blocked: set[str] = set()
+
+    # ---------- 模型 ----------
+
+    def _model_hint(self) -> str:
+        cfg = getattr(self.llm, "cfg", None)
+        return " ".join(str(getattr(cfg, key, "") or "") for key in ("model", "base_url"))
+
+    def _override(self, extra: dict) -> dict | None:
+        data = dict(extra or {})
+        if self.model:
+            data["model"] = self.model  # 学习单独用一个小模型
+        return data or None
 
     # ---------- 调模型 ----------
 
-    async def _chat(self, prompt: str, extra: dict | None = None) -> str:
+    async def _call(self, prompt: str, extra: dict) -> str:
         messages = [
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": prompt},
         ]
+        text = await asyncio.wait_for(
+            self.llm.complete(messages, override=self._override(extra),
+                              timeout=self.batch_timeout),
+            timeout=self.batch_timeout + 5,
+        )
+        return (text or "").strip()
+
+    async def _chat(self, prompt: str, extra: dict | None, mode: str) -> str:
         try:
-            text = await asyncio.wait_for(
-                self.llm.complete(messages, override=extra or None,
-                                  timeout=self.batch_timeout),
-                timeout=self.batch_timeout + 5,
-            )
-            return (text or "").strip()
+            return await self._call(prompt, extra or {})
         except asyncio.TimeoutError:
             log.warning("[鲸语汇] 模型调用超时（%ss），本批跳过", self.batch_timeout)
-        except Exception as exc:  # noqa: BLE001 - 模型报错不该炸掉学习循环
+            return ""
+        except Exception as exc:  # noqa: BLE001
+            # 关思考的参数后端不认：去掉重试一次，之后不再试
+            if extra and mode not in self._no_think_blocked:
+                self._no_think_blocked.add(mode)
+                log.info("[鲸语汇] 模型不认「%s」的关思考参数，回退普通请求：%s", mode, exc)
+                try:
+                    return await self._call(prompt, {})
+                except asyncio.TimeoutError:
+                    log.warning("[鲸语汇] 模型调用超时（%ss），本批跳过", self.batch_timeout)
+                except Exception as retry:
+                    log.warning("[鲸语汇] 模型调用失败：%s", retry)
+                return ""
             log.warning("[鲸语汇] 模型调用失败：%s", exc)
-        return ""
+            return ""
 
     # ---------- 主流程 ----------
 
@@ -186,7 +219,7 @@ class Miner:
             text = "\n".join(f"{m['sender']}: {m['text']}" for m in batch)[-4000:]
             raw = await self._chat(
                 EXTRACT_PROMPT.replace("{n}", str(self.extract_max)).replace("{chat}", text),
-                self.extract_extra)
+                self.extract_extra, self.extract_mode)
             items = parse_json(raw)
             if not isinstance(items, list):
                 failed += 1
@@ -272,7 +305,8 @@ class Miner:
 
     async def _review(self, items: list[dict]) -> dict[str, tuple[bool, str]]:
         lines = "\n".join(f"- {item['name']}：{item['meaning']}" for item in items)
-        raw = await self._chat(REVIEW_PROMPT.replace("{items}", lines), self.review_extra)
+        raw = await self._chat(
+            REVIEW_PROMPT.replace("{items}", lines), self.review_extra, self.review_mode)
         data = parse_json(raw)
         out: dict[str, tuple[bool, str]] = {}
         if isinstance(data, list):
@@ -296,16 +330,47 @@ class Miner:
         return ""
 
 
-def _parse_extra(raw, default: str = "") -> dict:
-    """请求附加参数（JSON）。给「关掉思考」这类后端差异留个口子。"""
+THINK_MODES = ("auto", "off", "openai", "glm", "gemini", "deepseek", "custom")
+
+
+def _think_mode(raw, default: str) -> str:
+    mode = str(raw or default).strip().lower()
+    return mode if mode in THINK_MODES else default
+
+
+def resolve_thinking(mode: str, custom, model_hint: str) -> dict:
+    """把「怎么关思考」翻译成请求体里那几个参数。
+
+    跟原插件同一套映射：auto 按模型名猜，猜不到就按 OpenAI 兼容处理，
+    真不认这个参数的话 `Miner._chat` 会去掉重试一次。
+    """
+    if mode == "off":
+        return {}
+    if mode == "custom":
+        return _parse_extra(custom)
+    if mode == "glm":
+        return {"thinking": {"type": "disabled"}}
+    if mode == "gemini":
+        return {"gm_thinking_config": {"budget": 0}}
+    if mode in ("openai", "deepseek"):
+        return {"reasoning_effort": "none"}
+    low = (model_hint or "").lower()
+    if "glm" in low or "zhipu" in low:
+        return {"thinking": {"type": "disabled"}}
+    if "gemini" in low:
+        return {"gm_thinking_config": {"budget": 0}}
+    return {"reasoning_effort": "none"}
+
+
+def _parse_extra(raw) -> dict:
     if isinstance(raw, dict):
         return raw
-    text = str(raw if raw not in (None, "") else default)
+    text = str(raw or "").strip()
     if not text:
         return {}
     try:
         value = json.loads(text)
     except (TypeError, ValueError):
-        log.warning("[鲸语汇] 附加参数不是合法 JSON，忽略：%s", text)
+        log.warning("[鲸语汇] 自定义请求参数不是合法 JSON，忽略：%s", text)
         return {}
     return value if isinstance(value, dict) else {}
