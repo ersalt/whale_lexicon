@@ -77,7 +77,8 @@ whale_lexicon/
 | 梗百科 | `wiki_enable` / `wiki_sync_enable` / `wiki_sync_time` / `wiki_sync_interval_days` | 侧栏分类、定时同步 |
 
 提取默认带 `{"reasoning_effort": "none"}`：同一段聊天实测 11.8 秒 → 1.8 秒，
-提取质量看不出差别；后端不吃这个参数就把那一格清空。
+提取质量看不出差别；后端不吃这个参数就把那一格清空。想换个更小的模型专门提取，
+直接在里面加 `"model": "qwen3-8b"`，只影响学习和自审，聊天用的还是主模型。
 
 ## 面板
 

@@ -136,7 +136,7 @@ type = "text"
 default = "{\"reasoning_effort\": \"none\"}"
 group = "learning"
 group_label = "自动学习"
-help = "JSON，合进提取请求。默认关掉思考：本机实测同样一段聊天 11.8 秒变 1.8 秒，提取质量看不出差别；后端不吃这个参数就清空"
+help = "JSON，合进提取请求。默认关掉思考：本机实测同样一段聊天 11.8 秒变 1.8 秒，提取质量看不出差别；也能顺手换模型，例如 {\"model\": \"qwen3-8b\", \"reasoning_effort\": \"none\"}；后端不吃这个参数就清空"
 
 [[config]]
 key = "review_extra_json"

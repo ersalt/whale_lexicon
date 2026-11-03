@@ -510,7 +510,12 @@ class LexiconPlugin(Extension):
         except Exception:  # noqa: BLE001
             self._wiki_keys = []
 
-    async def system_prompt(self, ctx: HookContext) -> str | None:
+    async def user_suffix(self, ctx: HookContext) -> str | None:
+        """命中词条就追加到这条消息末尾。
+
+        放用户消息而不是 system：system 要尽量静态，模型的 KV 缓存才能一直命中；
+        注入内容每条都不一样，塞进 system 会把缓存从注入点断开。
+        """
         stats = self.inject_stats
         stats["calls"] += 1
         if not _flag("enabled") or _SERVICE is None:
@@ -676,7 +681,10 @@ def setup(ctx: PluginContext) -> LexiconPlugin | None:
 
     plugin = LexiconPlugin()
     _BOT = plugin
-    log.info("[鲸语汇] 已就绪，数据库 %s", db_path)
+    stats = _SERVICE.stats()
+    log.info("[鲸语汇] 已就绪：词条 %d（手动 %d · 自动 %d），待审 %d，梗库 %d，数据库 %s",
+             stats["total"], stats["manual"], stats["auto"], stats["pending"],
+             _STORE.wiki_count(), db_path)
     return plugin
 
 
