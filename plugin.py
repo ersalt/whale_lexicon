@@ -21,35 +21,14 @@ from fastapi.responses import JSONResponse
 from app.pluginkit.manifest import PluginContext
 from app.pluginkit.registry import Extension, HookContext
 
+from .core.matcher import format_hint
+from .core.miner import Miner
+from .core.service import SlangService
+from .core.store import JargonStore
+
 log = logging.getLogger(__name__)
 
 HERE = Path(__file__).resolve().parent
-
-
-def _load_core():
-    """core 是个真包，按包加载，内部用相对导入。"""
-    spec = importlib.util.spec_from_file_location(
-        "whale_lexicon_core",
-        HERE / "core" / "__init__.py",
-        submodule_search_locations=[str(HERE / "core")],
-    )
-    if spec is None or spec.loader is None:
-        raise ImportError("加载 core 包失败")
-    module = importlib.util.module_from_spec(spec)
-    sys.modules["whale_lexicon_core"] = module
-    spec.loader.exec_module(module)
-    return module
-
-_core = _load_core()
-_store_mod = importlib.import_module("whale_lexicon_core.store")
-_service_mod = importlib.import_module("whale_lexicon_core.service")
-_matcher_mod = importlib.import_module("whale_lexicon_core.matcher")
-_miner_mod = importlib.import_module("whale_lexicon_core.miner")
-
-JargonStore = _store_mod.JargonStore
-SlangService = _service_mod.SlangService
-format_hint = _matcher_mod.format_hint
-Miner = _miner_mod.Miner
 
 router = APIRouter()
 _CONTEXT: PluginContext | None = None
@@ -120,6 +99,8 @@ async def learn_now(body: dict | None = None) -> JSONResponse:
 
 class LexiconPlugin(Extension):
     name = "whale_lexicon"
+    # 后台学习的巡检间隔（秒）：一分钟看一次有没有攒够批
+    loop_seconds = 60.0
 
     def __init__(self) -> None:
         self.started = time.time()
@@ -128,14 +109,9 @@ class LexiconPlugin(Extension):
 
     # ---------- 生命周期 ----------
 
-    def boot(self) -> None:
-        """setup() 里调：建库、建服务、把后台学习循环跑起来。"""
-        self.loop_seconds = 60.0
-        try:
-            self._task = asyncio.get_event_loop().create_task(self._background())
-        except RuntimeError:
-            # 没有正在运行的事件循环（极少见），下次收到消息再补
-            self._task = None
+    async def on_start(self) -> None:
+        """加载完成后起一个后台学习循环（受 ctx.spawn 管理，退出时会被取消）。"""
+        self.ctx.spawn(self._background())
 
     async def _background(self) -> None:
         while True:
@@ -239,9 +215,10 @@ def setup(ctx: PluginContext) -> LexiconPlugin | None:
 
     plugin = LexiconPlugin()
     _BOT = plugin
-    plugin.boot()
     log.info("[鲸语汇] 已就绪，数据库 %s", db_path)
     return plugin
+
+
 
 
 
