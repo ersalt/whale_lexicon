@@ -21,7 +21,7 @@ from tools.import_from_astrbot import map_scope  # noqa: E402
 
 def test_map_scope():
     assert map_scope("") == ""
-    assert map_scope("1007540691") == "group:1007540691"
+    assert map_scope("123456789") == "group:123456789"
     assert map_scope("group:42") == "group:42"
     assert map_scope("大肥鱼:GroupMessage:123") == "group:123"
     assert map_scope("大肥鱼:FriendMessage:456") == "private:456"

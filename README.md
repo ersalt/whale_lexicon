@@ -135,7 +135,7 @@ whale_lexicon/
 
 原来的群语汇（`astrbot_plugin_slang`）数据可以直接搬过来，表结构同源，只有两处要转：
 
-- 作用域：AstrBot 存 `1007540691`，这里存 `group:1007540691`
+- 作用域：AstrBot 存 `123456789`，这里存 `group:123456789`
 - 群名：AstrBot 在 `data_v4.db` 的 `umo_aliases`，这里在 `groups` 表
 
 ```bash
