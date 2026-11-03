@@ -19,50 +19,66 @@
 </script>
 <link rel="stylesheet" href="/static/style.css">
 <style>
-/* 面板自己的布局件；颜色、按钮、弹窗全部走 /static/style.css 的令牌 */
+/* 布局照 astrbot_plugin_slang 的 pages/yh/index.html：左边一张卡、右边一张卡。
+   配色和控件走 /static/style.css 的令牌，跟主面板一致。 */
 
-.split-layout { grid-template-columns: 232px minmax(0, 1fr); }
-.split-main { gap: 0; }
+.page { max-width: 1160px; padding: 24px 20px 72px; }
+.split-layout { grid-template-columns: 252px minmax(0, 1fr); gap: 14px; align-items: start; }
+.split-main {
+  gap: 0;
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--card);
+  box-shadow: var(--shadow-card);
+}
 
-/* ---------- 侧栏 ---------- */
+/* ---------- 左栏 ---------- */
+.split-side { padding: 16px 14px; gap: 12px; position: sticky; top: 24px; }
+.side-title {
+  margin: 2px 4px 4px;
+  font-size: 15px;
+  font-weight: 650;
+  line-height: 1.3;
+}
+.side-title small {
+  display: block;
+  margin-top: 2px;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--muted-foreground);
+}
+
 .nav-list { display: grid; gap: 4px; }
 .nav-item {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   width: 100%;
-  padding: 8px 10px;
+  padding: 8px 12px;
   border: 1px solid transparent;
   border-radius: var(--radius-control);
   background: transparent;
   color: var(--muted-foreground);
   font: inherit;
-  font-size: 13px;
+  font-size: 13.5px;
+  font-weight: 600;
   text-align: left;
   cursor: pointer;
   transition: background .14s ease, color .14s ease, border-color .14s ease;
 }
 .nav-item:hover { background: var(--muted); color: var(--foreground); }
-.nav-item.active {
-  background: var(--accent);
-  border-color: transparent;
-  color: var(--accent-foreground);
-  font-weight: 600;
-}
-.nav-caret {
-  width: 10px;
-  font-size: 10px;
-  opacity: .55;
-  flex: none;
-  text-align: center;
-}
+.nav-item.active { background: var(--accent); color: var(--accent-foreground); }
+.nav-caret { width: 10px; font-size: 10px; opacity: .55; flex: none; text-align: center; }
 .nav-caret.blank { visibility: hidden; }
 .nav-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .nav-count {
   flex: none;
   min-width: 22px;
+  height: 20px;
   padding: 0 7px;
-  height: 19px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -81,35 +97,34 @@
   align-items: center;
   gap: 8px;
   width: 100%;
-  padding: 5px 8px 5px 10px;
+  min-height: 40px;
+  padding: 4px 8px 4px 10px;
   border: 0;
   border-left: 2px solid var(--border);
   border-radius: 0 var(--radius-control) var(--radius-control) 0;
   background: transparent;
   color: var(--muted-foreground);
   font: inherit;
-  font-size: 12px;
+  font-size: 12.5px;
   text-align: left;
   cursor: pointer;
   transition: background .14s ease, color .14s ease, border-color .14s ease;
 }
 .nav-sub:hover { background: var(--muted); color: var(--foreground); }
 .nav-sub.active { background: var(--accent); border-left-color: var(--ring); color: var(--accent-foreground); }
-.nav-sub-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nav-sub-label { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.nav-sub-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.3; }
+.nav-sub-id { font-family: var(--mono); font-size: 10.5px; opacity: .8; white-space: nowrap; }
 .nav-sub-count { font-family: var(--mono); font-size: 10.5px; opacity: .8; flex: none; }
 .nav-subs:empty { display: none; }
 
-.side-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
-.side-actions .btn {
-  width: 100%;
-  height: 30px;
-  padding: 0 8px;
-  font-size: 12.5px;
-  box-shadow: none;
+.side-foot {
+  margin-top: auto;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  text-decoration: none;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  padding-top: 6px;
 }
 .side-diag {
   font-family: var(--mono);
@@ -119,21 +134,22 @@
   white-space: pre-line;
   word-break: break-word;
 }
+.side-foot .icon-btn { flex: none; }
 
-/* ---------- 工具条 ---------- */
-.toolbar { margin-bottom: 14px; align-items: flex-end; }
+/* ---------- 右栏 ---------- */
+.toolbar { margin: 0 0 14px; align-items: flex-end; gap: 12px; }
 .toolbar h1 { font-size: 20px; }
-.toolbar-actions { align-items: center; flex-wrap: wrap; }
-.toolbar-actions .ctl-search { width: 200px; }
+.toolbar h1 span { margin-left: 6px; font-size: 12px; font-weight: 400; color: var(--muted-foreground); }
+.toolbar-actions { align-items: center; flex-wrap: wrap; gap: 10px; }
 .toolbar-actions select { width: 114px; flex: none; }
 .toolbar-actions .btn { flex: none; }
+.ctl-search { width: 220px; flex: 1 1 160px; min-width: 0; }
 
-/* ---------- 批量条 ---------- */
 .bulkbar {
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-bottom: 12px;
+  margin: 0 0 12px;
   padding: 8px 14px;
   border: 1px solid var(--border);
   border-radius: var(--radius-control);
@@ -153,69 +169,59 @@
 .entries { display: grid; gap: 8px; }
 .entry {
   display: grid;
-  grid-template-columns: minmax(72px, 104px) minmax(0, 1fr) auto;
-  gap: 14px;
-  align-items: start;
-  padding: 12px 16px;
+  grid-template-columns: minmax(64px, 110px) minmax(0, 1fr) 172px;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 14px;
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  background: var(--card);
-  box-shadow: var(--shadow-card);
+  background: color-mix(in oklab, var(--muted) 55%, var(--card));
+  box-shadow: none;
   transition: border-color .14s ease;
 }
 .entry:hover { border-color: color-mix(in oklab, var(--border) 55%, var(--muted-foreground)); }
 .entry.picked { border-color: var(--ring); background: color-mix(in oklab, var(--accent) 32%, var(--card)); }
-.entry.has-pick { grid-template-columns: 18px minmax(72px, 104px) minmax(0, 1fr) auto; }
-.entry input[type="checkbox"] { width: 15px; height: 15px; margin: 3px 0 0; accent-color: var(--primary); cursor: pointer; }
-.entry-name { font-size: 13.5px; font-weight: 600; word-break: break-word; line-height: 1.5; padding-top: 1px; }
+.entry.pending { grid-template-columns: 26px minmax(64px, 110px) minmax(0, 1fr) 172px; }
+.entry-pick { width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; cursor: pointer; border-radius: 5px; }
+.entry-pick:hover { background: var(--muted); }
+.entry-pick input { width: 15px; height: 15px; margin: 0; accent-color: var(--primary); cursor: pointer; }
+.entry-name { font-size: 14px; font-weight: 650; line-height: 1.4; word-break: break-word; }
 .entry-body { min-width: 0; }
-.entry-meaning { margin: 0; font-size: 13px; color: var(--foreground); line-height: 1.6; word-break: break-word; }
+.entry-meaning { margin: 0; font-size: 13px; line-height: 1.55; color: var(--foreground); word-break: break-word; }
 .entry-meaning.empty { color: var(--muted-foreground); }
-/* 梗百科动辄两百字，列表里先截四行，想看全的把鼠标放上去 */
+.entry-meta {
+  margin: 3px 0 0;
+  font-size: 11.5px;
+  color: var(--muted-foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .entry.is-wiki .entry-meaning {
   display: -webkit-box;
   -webkit-line-clamp: 4;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
-.entry-note { margin: 4px 0 0; font-size: 11.5px; color: var(--muted-foreground); }
-.entry-meta {
-  margin: 5px 0 0;
-  font-family: var(--mono);
-  font-size: 10.5px;
-  color: var(--muted-foreground);
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 10px;
+.entry-ops { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.entry-ops .btn {
+  height: 28px;
+  padding: 0 2px;
+  font-size: 11.5px;
+  border-radius: 8px;
+  box-shadow: none;
+  white-space: nowrap;
 }
-.entry-meta .tag { padding: 0 6px; border-radius: 999px; background: var(--muted); }
-.entry-ops { display: flex; gap: 6px; flex: none; align-items: center; align-self: center; }
-.entry-ops .btn { height: 28px; padding: 0 11px; font-size: 12px; box-shadow: none; }
-.entry-ops .armed { background: var(--destructive); border-color: transparent; color: #fff; }
-.entry-ro { font-size: 11.5px; color: var(--muted-foreground); white-space: nowrap; }
+.entry-ops .btn.on { border-color: color-mix(in oklab, var(--success) 45%, var(--border)); color: color-mix(in oklab, var(--success) 60%, var(--foreground)); }
+.entry-ops .btn.armed { background: var(--destructive); border-color: transparent; color: #fff; }
+.entry.is-wiki .entry-ops .btn { grid-column: 1 / -1; }
 
-.entry-empty {
-  padding: 56px 20px;
-  border: 1px dashed var(--border);
-  border-radius: var(--radius);
-  color: var(--muted-foreground);
-  font-size: 13px;
-  text-align: center;
-}
+.empty { padding: 56px 20px; border: 1px dashed var(--border); border-radius: var(--radius); color: var(--muted-foreground); font-size: 13px; text-align: center; }
 
-/* ---------- 分页 ---------- */
-.pager {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 14px;
-  margin-top: 16px;
-  font-size: 12.5px;
-  color: var(--muted-foreground);
-}
+.pager { display: flex; align-items: center; justify-content: center; gap: 14px; margin-top: 16px; font-size: 12.5px; color: var(--muted-foreground); }
 .pager .btn { height: 28px; padding: 0 12px; font-size: 12.5px; }
 
-/* ---------- 弹窗表单 ---------- */
+/* ---------- 弹窗 ---------- */
 .dialog { width: min(520px, 100%); }
 .form-field { display: grid; gap: 6px; margin-bottom: 14px; }
 .form-field > label { font-size: 12.5px; font-weight: 500; }
@@ -235,78 +241,57 @@ textarea.ctl {
   padding: 8px 11px;
   resize: vertical;
 }
-textarea.ctl:focus {
-  outline: none;
-  border-color: var(--ring);
-  box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 22%, transparent);
-}
+textarea.ctl:focus { outline: none; border-color: var(--ring); box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 22%, transparent); }
 .dialog-foot .btn { box-shadow: none; }
 .confirm-text { margin: 0; font-size: 13px; line-height: 1.7; color: var(--foreground); white-space: pre-wrap; }
 
-@media (max-width: 880px) {
+@media (max-width: 900px) {
   .split-layout { grid-template-columns: 1fr; }
   .split-side { position: static; }
-  .entry, .entry.has-pick {
-    grid-template-columns: 1fr;
-    grid-template-areas: "name" "body" "ops";
-    gap: 8px;
+  .entry, .entry.pending {
+    grid-template-columns: minmax(64px, 110px) minmax(0, 1fr);
+    grid-template-areas: "name body" "ops ops";
+    row-gap: 10px;
   }
-  .entry.has-pick { grid-template-areas: "pick" "name" "body" "ops"; }
+  .entry.pending {
+    grid-template-columns: 26px minmax(64px, 110px) minmax(0, 1fr);
+    grid-template-areas: "pick name body" "ops ops ops";
+  }
   .entry > .entry-pick { grid-area: pick; }
   .entry-name { grid-area: name; }
   .entry-body { grid-area: body; }
   .entry-ops { grid-area: ops; }
+  .toolbar { align-items: stretch; }
   .toolbar-actions { width: 100%; }
-  .toolbar-actions .ctl-search { flex: 1; width: auto; }
+  .ctl-search { width: auto; }
 }
 </style>
 </head>
 <body>
 <div class="page">
-
-  <header class="head">
-    <div class="brand">
-      <span class="brand-name">鲸语汇</span>
-      <span class="brand-ver" id="ver">v0.2.0</span>
-    </div>
-    <div class="head-right">
-      <div class="status">
-        <span class="dot" id="dot"></span>
-        <span id="state-text">读取中</span>
-        <span class="status-sep"></span>
-        <span class="mono" id="stat-line"></span>
-      </div>
-      <button class="icon-btn" id="theme" type="button" aria-label="切换主题">◐</button>
-    </div>
-  </header>
-
   <div class="split-layout">
 
     <aside class="split-side">
-      <div class="split-title">词条库</div>
+      <h1 class="side-title">鲸语汇<small>whale_lexicon</small></h1>
       <div class="nav-list" id="nav"></div>
-      <div class="split-title">操作</div>
-      <div class="side-actions">
-        <button class="btn btn-sm" type="button" id="learnBtn">学一批</button>
-        <a class="btn btn-sm" href="/?plugin=whale_lexicon#plugins" target="_blank" rel="noopener">插件设置</a>
+      <div class="side-foot">
+        <div class="side-diag" id="diag">读取中…</div>
+        <button class="icon-btn" id="theme" type="button" aria-label="切换主题">◐</button>
       </div>
-      <div class="side-diag" id="diag"></div>
     </aside>
 
     <main class="split-main">
       <div class="toolbar">
         <div class="toolbar-text">
-          <h1 id="title">待审</h1>
-          <p id="subtitle">读取中</p>
+          <h1 id="title">手动<span id="subtitle"></span></h1>
         </div>
         <div class="toolbar-actions">
           <select id="sort" title="排序方式">
             <option value="recent">最新优先</option>
             <option value="count">次数优先</option>
           </select>
-          <input type="text" id="search" class="ctl-search" placeholder="搜词条或释义（/ 聚焦）" autocomplete="off">
-          <button class="btn" type="button" id="syncBtn" hidden>同步梗库</button>
-          <button class="btn btn-primary" type="button" id="addBtn">手动录入</button>
+          <input type="text" id="search" class="ctl-search" placeholder="搜索词条或含义…（/ 聚焦）" autocomplete="off">
+          <button class="btn btn-primary" type="button" id="addBtn">+ 手动录入</button>
         </div>
       </div>
 
@@ -322,11 +307,6 @@ textarea.ctl:focus {
       <div class="pager" id="pager" hidden></div>
     </main>
   </div>
-
-  <footer class="foot">
-    <span>数据目录 <code id="dbpath">data/plugin_data/whale_lexicon</code></span>
-    <span id="foot-state">未加载</span>
-  </footer>
 </div>
 
 <!-- 录入 / 修改 -->
@@ -389,7 +369,7 @@ textarea.ctl:focus {
 "use strict";
 
 const $ = (id) => document.getElementById(id);
-const SOURCE = { manual: "手动", ai: "自动", wiki: "梗百科" };
+const LABELS = { manual: "手动", auto: "黑话库", pending: "待审", wiki: "梗百科" };
 
 const state = {
   // 顺序跟原插件一致：手动 → 黑话库 → 待审 → 梗百科，默认落在「手动」
@@ -401,12 +381,12 @@ const state = {
   page: 1,
   size: 50,
   tree: null,
-  names: {},          // scope -> 群名
-  items: new Map(),   // id -> 词条
+  names: {},
+  items: new Map(),
   selected: new Set(),
   collapsed: new Set(),
   limit: 200,
-  editing: null,      // 正在改的词条；null 表示新增
+  editing: null,
   confirmHandler: null,
 };
 
@@ -424,15 +404,15 @@ function fmtDate(ts) {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
 }
 
-function scopeLabel(scope) {
-  if (!scope) return "全局";
-  if (state.names[scope]) return state.names[scope];
+/** group:123456 → 123456；面板上只显示号码，跟原插件一致 */
+function scopeId(scope) {
   const at = scope.lastIndexOf(":");
-  const kind = at >= 0 ? scope.slice(0, at) : "";
-  const ident = at >= 0 ? scope.slice(at + 1) : scope;
-  if (kind === "group") return `群 ${ident}`;
-  if (kind === "private") return `私聊 ${ident}`;
-  return scope;
+  return at >= 0 ? scope.slice(at + 1) : scope;
+}
+
+function scopeName(scope) {
+  if (!scope) return "全局";
+  return state.names[scope] || `群 ${scopeId(scope)}`;
 }
 
 function toast(message, kind) {
@@ -514,9 +494,14 @@ function renderNav() {
     if (hasSubs && !collapsed) {
       html += `<div class="nav-subs">` + bucket.subs.map((sub) => {
         const on = state.bucket === bucket.key && state.scoped && state.scope === sub.scope ? " active" : "";
+        const name = sub.scope ? (sub.name || "未命名群") : "全局";
+        const id = sub.scope ? `[${esc(scopeId(sub.scope))}]` : "所有群通用";
         return `<button class="nav-sub${on}" type="button"
           data-bucket="${esc(bucket.key)}" data-scope="${esc(sub.scope)}">
-          <span class="nav-sub-name">${esc(sub.name || scopeLabel(sub.scope))}</span>
+          <span class="nav-sub-label">
+            <span class="nav-sub-name">${esc(name)}</span>
+            <span class="nav-sub-id">${esc(id)}</span>
+          </span>
           <span class="nav-sub-count">${sub.count}</span>
         </button>`;
       }).join("") + `</div>`;
@@ -572,10 +557,13 @@ $("nav").addEventListener("click", (event) => {
 /* ---------- 列表 ---------- */
 
 function titleOf() {
+  const label = LABELS[state.bucket] || "全部";
+  if (!state.scoped) return label;
+  if (!state.scope) return `${label} · 全局`;
   const bucket = state.tree && state.tree.buckets.find((b) => b.key === state.bucket);
-  const label = bucket ? bucket.label : "全部";
-  if (state.scoped) return `${label} · ${scopeLabel(state.scope)}`;
-  return label;
+  const sub = bucket && bucket.subs.find((s) => s.scope === state.scope);
+  const name = sub && sub.name ? sub.name : "群";
+  return `${label} · ${name} [${scopeId(state.scope)}]`;
 }
 
 function scopeOptions(current) {
@@ -585,53 +573,58 @@ function scopeOptions(current) {
     (bucket.subs || []).forEach((sub) => {
       if (!sub.scope || seen.has(sub.scope)) return;
       seen.add(sub.scope);
-      options.push(`<option value="${esc(sub.scope)}">${esc(sub.name || scopeLabel(sub.scope))}</option>`);
+      const name = sub.name || "未命名群";
+      options.push(`<option value="${esc(sub.scope)}">${esc(name)} [${esc(scopeId(sub.scope))}]</option>`);
     });
   });
   if (current && !seen.has(current)) {
-    options.push(`<option value="${esc(current)}">${esc(scopeLabel(current))}</option>`);
+    options.push(`<option value="${esc(current)}">${esc(scopeName(current))}</option>`);
   }
   return options.join("");
 }
 
 function entryHTML(item) {
   const name = item.content || "";
-  const pending = state.bucket === "pending" && !item.read_only;
-  const picked = state.selected.has(item.id) ? " picked" : "";
-  const pickBox = pending
-    ? `<input type="checkbox" class="entry-pick" ${picked ? "checked" : ""} aria-label="选择 ${esc(name)}">`
-    : "";
-
-  const meta = [];
-  meta.push(`<span class="tag">${esc(SOURCE[item.source] || item.source)}</span>`);
-  if (item.scope) meta.push(`<span>${esc(scopeLabel(item.scope))}</span>`);
-  if (item.count > 1) meta.push(`<span>累计 ${item.count} 次</span>`);
-  if (item.updated_at) meta.push(`<span>${fmtDate(item.updated_at)}</span>`);
-  // 「自动提取」「手动录入」这类默认来源没信息量，只有真名才显示
-  const who = (item.contributor || "").trim();
-  if (who && !["自动提取", "自动", "手动录入"].includes(who)) {
-    meta.push(`<span>来源 ${esc(who)}</span>`);
+  if (item.read_only) {
+    const tags = item.tags ? ` · ${esc(item.tags)}` : "";
+    return `<article class="entry is-wiki" data-key="${esc(item.id)}">
+      <div class="entry-name">${esc(name)}</div>
+      <div class="entry-body">
+        <p class="entry-meaning${item.meaning ? "" : " empty"}" title="${esc(item.meaning)}">${esc(item.meaning) || "（没有摘要）"}</p>
+        <p class="entry-meta">梗百科 · 只读${tags}</p>
+      </div>
+      <div class="entry-ops"><button class="btn" type="button" disabled>只读</button></div>
+    </article>`;
   }
-  if (item.auto_note) meta.push(`<span>${esc(String(item.auto_note).slice(0, 28))}</span>`);
 
-  const note = item.keywords ? `<p class="entry-note">关键词：${esc(item.keywords)}</p>` : "";
-  const ops = item.read_only
-    ? `<span class="entry-ro">只读 · 梗百科</span>`
-    : `<div class="entry-ops">
-        <button class="btn btn-sm" type="button" data-act="approve">${pending ? "通过" : "驳回"}</button>
-        <button class="btn btn-sm" type="button" data-act="edit">修改</button>
-        <button class="btn btn-sm btn-danger" type="button" data-act="del">删除</button>
-      </div>`;
+  const pending = state.bucket === "pending";
+  const picked = state.selected.has(item.id);
+  const pick = pending
+    ? `<label class="entry-pick">
+         <input type="checkbox" ${picked ? "checked" : ""} aria-label="选择 ${esc(name)}">
+       </label>`
+    : "";
+  const src = item.source === "manual" ? "手动" : "自动";
+  const where = item.is_global ? "全局" : scopeName(item.scope);
+  const who = item.contributor ? `来源：${esc(item.contributor)}` : "";
+  const note = item.auto_note ? `理由：${esc(item.auto_note)}` : "";
+  const meta = [src, where, who, `×${item.count || 1}`,
+    item.updated_at ? fmtDate(item.updated_at) : "", note].filter(Boolean).join(" · ");
+  const keywords = item.keywords ? `<p class="entry-meta">关键词：${esc(item.keywords)}</p>` : "";
 
-  return `<article class="entry${pickBox ? " has-pick" : ""}${picked}${item.read_only ? " is-wiki" : ""}" data-key="${esc(item.id)}">
-    ${pickBox}
+  return `<article class="entry${pending ? " pending" : ""}${picked ? " picked" : ""}" data-key="${esc(item.id)}">
+    ${pick}
     <div class="entry-name">${esc(name)}</div>
     <div class="entry-body">
-      <p class="entry-meaning${item.meaning ? "" : " empty"}" title="${esc(item.meaning)}">${esc(item.meaning) || "（没有内容）"}</p>
-      ${note}
-      <p class="entry-meta">${meta.join("")}</p>
+      <p class="entry-meaning${item.meaning ? "" : " empty"}">${esc(item.meaning) || "（没有含义）"}</p>
+      ${keywords}
+      <p class="entry-meta">${meta}</p>
     </div>
-    ${ops}
+    <div class="entry-ops">
+      <button class="btn${pending ? " on" : ""}" type="button" data-act="approve">${pending ? "审核" : "驳回"}</button>
+      <button class="btn" type="button" data-act="edit">修改</button>
+      <button class="btn" type="button" data-act="del">删除</button>
+    </div>
   </article>`;
 }
 
@@ -660,7 +653,7 @@ function syncBulk() {
   $("pickInfo").textContent = `已选 ${count} 条`;
   $("bulkApprove").disabled = count === 0;
   $("bulkDelete").disabled = count === 0;
-  const picks = Array.from(document.querySelectorAll("#list .entry-pick"));
+  const picks = Array.from(document.querySelectorAll("#list .entry-pick input"));
   $("pickAll").checked = picks.length > 0 && picks.every((box) => box.checked);
   $("pickAll").indeterminate = count > 0 && !$("pickAll").checked;
 }
@@ -695,18 +688,16 @@ async function loadList() {
   state.items.clear();
   state.selected.clear();
 
-  const bucket = state.tree && state.tree.buckets.find((b) => b.key === state.bucket);
-  const label = bucket ? bucket.label : state.bucket;
-  $("title").textContent = titleOf();
-  $("subtitle").textContent = data.total ? `共 ${data.total} 条` : "这里还是空的";
-  $("addBtn").hidden = state.bucket === "wiki";
-  $("syncBtn").hidden = state.bucket !== "wiki";
+  const label = LABELS[state.bucket] || state.bucket;
+  $("title").firstChild.textContent = titleOf();
+  $("subtitle").textContent = `${data.total} 条`;
   $("sort").hidden = state.bucket === "wiki";
+  $("addBtn").hidden = state.bucket !== "manual";
 
   (data.items || []).forEach((item) => state.items.set(item.id, item));
   $("list").innerHTML = (data.items || []).length
     ? data.items.map(entryHTML).join("")
-    : `<div class="entry-empty">${state.bucket === "pending" ? "待审池是空的，攒够聊天会自己学" : `「${esc(label)}」还没有词条`}</div>`;
+    : `<div class="empty">这里还没有词条</div>`;
   syncBulk();
   renderPager(data.total, data.page || state.page, data.size || state.size);
 }
@@ -714,14 +705,14 @@ async function loadList() {
 async function refresh() {
   try { await loadTree(); } catch (error) { toast(`侧栏读取失败：${error.message}`, "bad"); }
   try { await loadList(); } catch (error) {
-    $("list").innerHTML = `<div class="entry-empty">列表读取失败：${esc(error.message)}</div>`;
+    $("list").innerHTML = `<div class="empty">列表读取失败：${esc(error.message)}</div>`;
   }
 }
 
 /* ---------- 词条操作 ---------- */
 
 $("list").addEventListener("change", (event) => {
-  const box = event.target.closest(".entry-pick");
+  const box = event.target.closest(".entry-pick input");
   if (!box) return;
   const row = box.closest(".entry");
   const key = row.dataset.key;
@@ -781,14 +772,16 @@ function armDelete(row) {
   if (!ops || ops.dataset.armed) return;
   ops.dataset.armed = "1";
   ops.dataset.backup = ops.innerHTML;
-  ops.innerHTML = `<button class="btn btn-sm armed" type="button" data-act="confirm-del">确认删除</button>
-    <button class="btn btn-sm" type="button" data-act="cancel">取消</button>`;
+  ops.innerHTML = `<button class="btn armed" type="button" data-act="confirm-del">确认删除</button>
+    <button class="btn" type="button" data-act="cancel">取消</button>`;
+  ops.style.gridTemplateColumns = "1fr 1fr";
 }
 
 function closeArmed(row) {
   const ops = row.querySelector(".entry-ops");
   if (!ops || !ops.dataset.armed) return;
   ops.innerHTML = ops.dataset.backup || "";
+  ops.style.gridTemplateColumns = "";
   delete ops.dataset.armed;
   delete ops.dataset.backup;
 }
@@ -897,7 +890,7 @@ $("pickAll").addEventListener("change", () => {
   const on = $("pickAll").checked;
   state.selected.clear();
   document.querySelectorAll("#list .entry").forEach((row) => {
-    const box = row.querySelector(".entry-pick");
+    const box = row.querySelector(".entry-pick input");
     if (!box) return;
     box.checked = on;
     row.classList.toggle("picked", on);
@@ -948,39 +941,6 @@ $("sort").addEventListener("change", (event) => {
   loadList().catch((error) => toast(error.message, "bad"));
 });
 
-$("learnBtn").addEventListener("click", async () => {
-  const button = $("learnBtn");
-  const label = button.textContent;
-  button.disabled = true;
-  button.textContent = "学习中…";
-  try {
-    const data = await req("learn", {});
-    toast(data.message || `新增 ${data.added} 条`, data.added ? "ok" : "");
-    await refresh();
-  } catch (error) {
-    toast(error.message, "bad");
-  } finally {
-    button.disabled = false;
-    button.textContent = label;
-  }
-});
-
-$("syncBtn").addEventListener("click", async () => {
-  const button = $("syncBtn");
-  button.disabled = true;
-  button.textContent = "同步中…";
-  try {
-    const data = await req("wiki/sync", {});
-    toast(data.message || "同步完成", "ok");
-    await refresh();
-  } catch (error) {
-    toast(error.message, "bad");
-  } finally {
-    button.disabled = false;
-    button.textContent = "同步梗库";
-  }
-});
-
 /* ---------- 主题 / 快捷键 ---------- */
 
 $("theme").addEventListener("click", () => {
@@ -1018,30 +978,24 @@ async function boot() {
     state.scope = raw === "__global__" ? "" : raw;
     state.scoped = true;
   }
+  let info = {};
   try {
-    const info = await req("ping");
+    info = await req("ping");
     state.limit = info.limit || 200;
-    $("ver").textContent = "v" + (info.version || "0.0.0");
-    $("dot").className = "dot " + (info.enabled ? "on" : "off");
-    $("state-text").textContent = info.enabled
-      ? (info.auto_learn ? "自动学习中" : "学了不自动跑") : "已停止";
-    $("stat-line").textContent = `词条 ${info.rows} · 待审 ${info.pending} · 梗库 ${info.wiki}`;
-    const inject = info.inject || {};
-    $("diag").textContent =
-      `手动 ${info.manual} · 自动 ${info.auto}\n缓冲 ${info.buffer || 0} 条 · 注入命中 ${inject.hits || 0} 次\n词条上限 ${info.limit} 字`;
-    $("foot-state").textContent = info.wiki_synced_at
-      ? `梗库上次同步 ${fmtDate(Number(info.wiki_synced_at))}`
-      : "梗库还没同步过";
   } catch (error) {
-    $("dot").className = "dot off";
-    $("state-text").textContent = "连接失败";
-    $("diag").textContent = error.message;
+    $("diag").textContent = `自检失败：${error.message}`;
     toast(error.message, "bad");
   }
-  try { await loadTree(); } catch (error) { $("diag").textContent = error.message; }
+  if (info.ok) {
+    $("diag").textContent =
+      `自检 ok · ${info.rows} 条 · 梗库 ${info.wiki}\n` +
+      `${info.enabled ? (info.auto_learn ? "自动学习中" : "自动学习关闭") : "已停止"}` +
+      ` · 缓冲 ${info.buffer || 0}`;
+  }
+  try { await loadTree(); } catch (error) { $("diag").textContent = `自检失败：${error.message}`; }
   updateCounter();
   try { await loadList(); } catch (error) {
-    $("list").innerHTML = `<div class="entry-empty">列表读取失败：${esc(error.message)}</div>`;
+    $("list").innerHTML = `<div class="empty">列表读取失败：${esc(error.message)}</div>`;
   }
   if (params.get("new") === "1") openEditor(null);
 }

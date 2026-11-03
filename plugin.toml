@@ -1,6 +1,6 @@
 title = "鲸语汇"
 description = "群黑话自学习：从群聊里提取、模型自审、按群隔离，命中时注入提示词。"
-version = "0.3.1"
+version = "0.3.2"
 author = "贰叔"
 panel = "/plugins/whale_lexicon"
 
@@ -258,4 +258,5 @@ default = 7
 group = "wiki"
 group_label = "梗百科"
 show_if = { key = "wiki_enable", value = true }
+
 
