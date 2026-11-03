@@ -27,6 +27,8 @@
 .split-main {
   gap: 0;
   min-width: 0;
+  min-height: calc(100vh - 48px);
+  align-content: start;
   padding: 16px;
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -212,7 +214,11 @@
   box-shadow: none;
   white-space: nowrap;
 }
-.entry-ops .btn.on { border-color: color-mix(in oklab, var(--success) 45%, var(--border)); color: color-mix(in oklab, var(--success) 60%, var(--foreground)); }
+.entry-ops .btn.on {
+  background: color-mix(in oklab, var(--success) 14%, var(--card));
+  border-color: color-mix(in oklab, var(--success) 38%, var(--border));
+  color: color-mix(in oklab, var(--success) 55%, var(--foreground));
+}
 .entry-ops .btn.armed { background: var(--destructive); border-color: transparent; color: #fff; }
 .entry.is-wiki .entry-ops .btn { grid-column: 1 / -1; }
 
