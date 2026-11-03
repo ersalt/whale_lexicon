@@ -6,6 +6,27 @@
 → 确定的直接进黑话库、拿不准的进待审 → 命中时注入到 system 提示词里。
 黑话没命中时，还会用梗百科兜底注一句。
 
+
+## 部署到机器人
+
+开发在这个仓库，机器人加载的是项目内的副本：
+
+```
+D:\Dev\whale_lexicon                  ← 开发（独立仓库、独立发版）
+D:\Dev\qq-bot-lite\plugins\whale_lexicon   ← 部署副本（机器人实际加载）
+```
+
+同步：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File tools\deploy-to-bot.ps1
+```
+
+脚本用 `robocopy /MIR`，排除 `.git`、`tests/`、`tools/`、`docs/` 和各类缓存，
+并在目标目录写一份 `.deployed.json`（版本、提交、时间），排查时对得上。
+改完代码要重启机器人，插件是加载时导入的。
+
+
 ## 为什么单开一个项目
 
 词库、提取、审核这套逻辑跟具体机器人框架无关，塞进主仓库只会让两边都难维护。
