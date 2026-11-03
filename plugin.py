@@ -31,7 +31,7 @@ from .core.store import TABLES, JargonStore
 log = logging.getLogger(__name__)
 
 HERE = Path(__file__).resolve().parent
-VERSION = "0.3.2"
+VERSION = "0.3.3"
 
 router = APIRouter()
 _CONTEXT: PluginContext | None = None
@@ -857,5 +857,6 @@ async def _handle_yh(cmd: CommandContext) -> str:
 
 
 COMMANDS = [Command("yh", handler=_handle_yh, help="群语汇：/yh help", admin=True)]
+
 
 

@@ -65,7 +65,12 @@ whale_lexicon/
 
 ## 设置
 
-主面板「插件」→「设置」，按分组排列；梗百科那几项只在启用梗百科时才出现。
+两个地方都能改，读写的是同一份 `settings.toml`：
+
+- 插件页左下的「设置」按钮，点开是页内弹窗
+- 主面板「插件」→「设置」
+
+按分组排列；梗百科那几项只在启用梗百科时才出现。
 
 ![设置](docs/panel-settings.png)
 
@@ -110,19 +115,39 @@ whale_lexicon/
 
 ![待审](docs/panel.png)
 
-- 左栏：鲸语汇标题、四个分类（带条数）、按群展开（群名 + `[群号]` + 条数）、底部自检
+- 左栏：鲸语汇标题、四个分类（带条数）、按群展开（群名 + `[群号]` + 条数）、
+  底部自检 + 「设置」入口
 - 右栏：标题 + 条数、排序、搜索（`/` 聚焦）、`+ 手动录入`（只在「手动」出现）、
   批量条（只在「待审」出现）、词条列表、翻页
 - 词条行：勾选框 | 名称 | 含义 + 关键词 + `来源 · 群 · ×次数 · 时间 · 理由` | 三个按钮
 - 梗百科的词条是只读的，按钮位显示「只读」
-- 页面上没有设置入口：设置在主面板「插件」→「设置」里
+- 页内「设置」弹窗和主面板的插件设置是同一份数据（同一个接口），改哪边都一样
 
 顺序跟原插件一致：**手动**（知识库）→ **黑话库**（学来的）→ **待审**（审查）→ **梗百科**（兜底），
 默认落在「手动」。
 
+![设置](docs/panel-settings.png)
 ![梗百科](docs/panel-wiki.png)
 ![录入](docs/panel-add.png)
 ![暗色](docs/panel-dark.png)
+
+## 从 AstrBot 搬数据
+
+原来的群语汇（`astrbot_plugin_slang`）数据可以直接搬过来，表结构同源，只有两处要转：
+
+- 作用域：AstrBot 存 `1007540691`，这里存 `group:1007540691`
+- 群名：AstrBot 在 `data_v4.db` 的 `umo_aliases`，这里在 `groups` 表
+
+```bash
+python tools/import_from_astrbot.py \
+  --source "<AstrBot>/data/plugin_data/astrbot_plugin_slang/jargon.db" \
+  --target "<qq-bot-lite>/data/plugin_data/whale_lexicon/jargon.db" \
+  --aliases "<AstrBot>/data/data_v4.db" \
+  --replace
+```
+
+先停机器人再跑。`--replace` 清空现有词条（梗百科是合并），不加就是往现有数据上合并。
+加 `--dry-run` 只统计不写库；`--no-wiki` / `--no-aliases` 可以跳过梗百科和群名。
 
 ## 接口
 

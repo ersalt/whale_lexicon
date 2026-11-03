@@ -128,6 +128,18 @@
   gap: 8px;
   padding-top: 6px;
 }
+.side-tools { display: flex; align-items: center; gap: 4px; flex: none; }
+.side-link {
+  border: 0;
+  background: none;
+  padding: 4px 4px;
+  color: var(--muted-foreground);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  border-radius: 6px;
+}
+.side-link:hover { color: var(--foreground); background: var(--muted); }
 .side-diag {
   font-family: var(--mono);
   font-size: 10.5px;
@@ -251,6 +263,36 @@ textarea.ctl:focus { outline: none; border-color: var(--ring); box-shadow: 0 0 0
 .dialog-foot .btn { box-shadow: none; }
 .confirm-text { margin: 0; font-size: 13px; line-height: 1.7; color: var(--foreground); white-space: pre-wrap; }
 
+/* 录入/修改弹窗：作用域下面不要那条分割线 */
+#editMask .dialog-foot { border-top: 0; }
+
+/* 设置弹窗 */
+.settings-dialog {
+  width: min(720px, 100%);
+  display: flex;
+  flex-direction: column;
+  max-height: 86vh;
+  overflow: hidden;
+}
+.settings-dialog .dialog-body { flex: 1; min-height: 0; overflow: auto; }
+.settings-dialog .dialog-foot { position: static; }
+.set-group { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px 18px; }
+.set-group + .set-group { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border); }
+.set-title {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: .04em;
+  color: var(--muted-foreground);
+}
+.set-field { display: grid; gap: 5px; min-width: 0; }
+.set-field > label { font-size: 12.5px; font-weight: 500; }
+.set-field .hint { margin: 0; }
+.set-row { display: flex; align-items: center; gap: 10px; min-height: 34px; }
+#settingsMask .dialog-foot { align-items: center; }
+#settingsHint { margin-right: auto; font-size: 12px; color: var(--destructive); }
+
 @media (max-width: 900px) {
   .split-layout { grid-template-columns: 1fr; }
   .split-side { position: static; }
@@ -282,7 +324,10 @@ textarea.ctl:focus { outline: none; border-color: var(--ring); box-shadow: 0 0 0
       <div class="nav-list" id="nav"></div>
       <div class="side-foot">
         <div class="side-diag" id="diag">读取中…</div>
-        <button class="icon-btn" id="theme" type="button" aria-label="切换主题">◐</button>
+        <div class="side-tools">
+          <button class="side-link" id="settingsBtn" type="button">设置</button>
+          <button class="icon-btn" id="theme" type="button" aria-label="切换主题">◐</button>
+        </div>
       </div>
     </aside>
 
@@ -370,6 +415,23 @@ textarea.ctl:focus { outline: none; border-color: var(--ring); box-shadow: 0 0 0
 </div>
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<!-- 插件设置 -->
+<div class="overlay" id="settingsMask" hidden>
+  <div class="dialog settings-dialog">
+    <div class="dialog-head">
+      <h2>设置</h2>
+      <button class="icon-btn" type="button" data-close aria-label="关闭">×</button>
+    </div>
+    <p class="dialog-sub">存到 data/plugin_data/whale_lexicon/settings.toml，改完下一轮生效。</p>
+    <div class="dialog-body" id="settingsBody"></div>
+    <div class="dialog-foot">
+      <span id="settingsHint"></span>
+      <button class="btn" type="button" data-close>取消</button>
+      <button class="btn btn-primary" type="button" id="settingsSave">保存</button>
+    </div>
+  </div>
+</div>
 
 <script>
 "use strict";
@@ -947,6 +1009,175 @@ $("sort").addEventListener("change", (event) => {
   loadList().catch((error) => toast(error.message, "bad"));
 });
 
+/* ---------- 设置 ---------- */
+
+const PLUGIN_ID = "whale_lexicon";
+let settingFields = [];
+let settingReaders = {};
+
+function settingControl(field, value) {
+  const wrap = document.createElement("div");
+  wrap.className = "set-field";
+  wrap.dataset.field = field.key;
+  const label = document.createElement("label");
+  label.textContent = field.label || field.key;
+  const id = `s-${field.key}`;
+  label.htmlFor = id;
+
+  let read;
+  if (field.type === "bool") {
+    const box = document.createElement("div");
+    box.className = "switch";
+    const input = document.createElement("input");
+    input.type = "checkbox";
+    input.id = id;
+    input.checked = Boolean(value);
+    const track = document.createElement("label");
+    track.className = "track";
+    track.htmlFor = id;
+    const state = document.createElement("span");
+    state.className = "state";
+    state.textContent = input.checked ? "开" : "关";
+    input.addEventListener("change", () => { state.textContent = input.checked ? "开" : "关"; });
+    box.append(input, track, state);
+    wrap.append(label, box);
+    read = () => input.checked;
+  } else if (field.type === "options" && Array.isArray(field.options) && field.options.length) {
+    const select = document.createElement("select");
+    select.id = id;
+    const labels = Array.isArray(field.labels) ? field.labels : [];
+    const current = value === null || value === undefined ? "" : String(value);
+    let known = false;
+    field.options.forEach((option, index) => {
+      const node = document.createElement("option");
+      node.value = String(option);
+      node.textContent = labels[index] || String(option);
+      if (String(option) === current) known = true;
+      select.append(node);
+    });
+    if (!known && current) {
+      const node = document.createElement("option");
+      node.value = current;
+      node.textContent = current;
+      select.append(node);
+    }
+    select.value = current;
+    wrap.append(label, select);
+    read = () => select.value;
+  } else if (field.multiline) {
+    const area = document.createElement("textarea");
+    area.id = id;
+    area.className = "ctl";
+    area.rows = field.rows || 3;
+    area.value = value === null || value === undefined ? "" : String(value);
+    wrap.append(label, area);
+    read = () => area.value;
+  } else {
+    const input = document.createElement("input");
+    input.id = id;
+    input.type = field.type === "number" ? "number" : "text";
+    if (field.min !== undefined) input.min = field.min;
+    if (field.max !== undefined) input.max = field.max;
+    input.value = value === null || value === undefined ? "" : String(value);
+    wrap.append(label, input);
+    read = () => (field.type === "number" ? Number(input.value) : input.value);
+  }
+  if (field.help) {
+    const hint = document.createElement("p");
+    hint.className = "hint";
+    hint.textContent = field.help;
+    wrap.append(hint);
+  }
+  settingReaders[field.key] = read;
+  return wrap;
+}
+
+function applySettingConditions() {
+  const body = $("settingsBody");
+  for (const field of settingFields) {
+    const condition = field.show_if;
+    if (!condition || !condition.key) continue;
+    const node = body.querySelector(`[data-field="${field.key}"]`);
+    const read = settingReaders[condition.key];
+    if (!node || !read) continue;
+    node.hidden = String(read()) !== String(condition.value);
+  }
+}
+
+function renderSettings(fields, values) {
+  settingFields = fields;
+  settingReaders = {};
+  const body = $("settingsBody");
+  body.textContent = "";
+  const groups = [];
+  for (const field of fields) {
+    const key = field.group || "";
+    let group = groups.find((item) => item.key === key);
+    if (!group) {
+      group = { key, label: field.group_label || "", fields: [] };
+      groups.push(group);
+    }
+    group.fields.push(field);
+  }
+  for (const group of groups) {
+    const section = document.createElement("div");
+    section.className = "set-group";
+    if (group.label) {
+      const title = document.createElement("p");
+      title.className = "set-title";
+      title.textContent = group.label;
+      section.append(title);
+    }
+    for (const field of group.fields) {
+      section.append(settingControl(field, values ? values[field.key] : undefined));
+    }
+    body.append(section);
+  }
+  body.oninput = applySettingConditions;
+  body.onchange = applySettingConditions;
+  applySettingConditions();
+}
+
+async function openSettings() {
+  $("settingsHint").textContent = "";
+  $("settingsBody").innerHTML = `<p class="hint">读取中…</p>`;
+  openMask($("settingsMask"));
+  try {
+    const res = await fetch(`/api/plugins/${PLUGIN_ID}/settings`);
+    const data = await res.json();
+    if (!res.ok || data.ok === false) throw new Error(data.message || `读取失败（${res.status}）`);
+    renderSettings(data.fields || [], data.values || {});
+  } catch (error) {
+    $("settingsBody").innerHTML = `<p class="hint">读取设置失败：${esc(error.message)}</p>`;
+  }
+}
+
+$("settingsBtn").addEventListener("click", openSettings);
+
+$("settingsSave").addEventListener("click", async () => {
+  const values = {};
+  for (const [key, read] of Object.entries(settingReaders)) values[key] = read();
+  const button = $("settingsSave");
+  button.disabled = true;
+  $("settingsHint").textContent = "";
+  try {
+    const res = await fetch(`/api/plugins/${PLUGIN_ID}/settings`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ values }),
+    });
+    const data = await res.json();
+    if (!res.ok || data.ok === false) throw new Error(data.message || "保存失败");
+    closeMask($("settingsMask"));
+    toast(data.message || "设置已保存", "ok");
+    await refreshStatus();
+  } catch (error) {
+    $("settingsHint").textContent = error.message;
+  } finally {
+    button.disabled = false;
+  }
+});
+
 /* ---------- 主题 / 快捷键 ---------- */
 
 $("theme").addEventListener("click", () => {
@@ -975,6 +1206,22 @@ document.addEventListener("keydown", (event) => {
 
 /* ---------- 启动 ---------- */
 
+async function refreshStatus() {
+  try {
+    const info = await req("ping");
+    state.limit = info.limit || 200;
+    $("diag").textContent =
+      `自检 ok · ${info.rows} 条 · 梗库 ${info.wiki}\n` +
+      `${info.enabled ? (info.auto_learn ? "自动学习中" : "自动学习关闭") : "已停止"}` +
+      ` · 缓冲 ${info.buffer || 0}`;
+    return info;
+  } catch (error) {
+    $("diag").textContent = `自检失败：${error.message}`;
+    toast(error.message, "bad");
+    return null;
+  }
+}
+
 async function boot() {
   const params = new URLSearchParams(location.search);
   const wantBucket = params.get("bucket");
@@ -984,26 +1231,14 @@ async function boot() {
     state.scope = raw === "__global__" ? "" : raw;
     state.scoped = true;
   }
-  let info = {};
-  try {
-    info = await req("ping");
-    state.limit = info.limit || 200;
-  } catch (error) {
-    $("diag").textContent = `自检失败：${error.message}`;
-    toast(error.message, "bad");
-  }
-  if (info.ok) {
-    $("diag").textContent =
-      `自检 ok · ${info.rows} 条 · 梗库 ${info.wiki}\n` +
-      `${info.enabled ? (info.auto_learn ? "自动学习中" : "自动学习关闭") : "已停止"}` +
-      ` · 缓冲 ${info.buffer || 0}`;
-  }
+  await refreshStatus();
   try { await loadTree(); } catch (error) { $("diag").textContent = `自检失败：${error.message}`; }
   updateCounter();
   try { await loadList(); } catch (error) {
     $("list").innerHTML = `<div class="empty">列表读取失败：${esc(error.message)}</div>`;
   }
   if (params.get("new") === "1") openEditor(null);
+  if (params.get("settings") === "1") openSettings();
 }
 
 boot();

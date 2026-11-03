@@ -1,5 +1,13 @@
 # 鲸语汇
 
+## 0.3.3
+
+- 面板加回「设置」按钮，点开是页内的设置弹窗（读主面板的 `/api/plugins/<id>/settings`，
+  分组、下拉、多行、依赖显隐都跟主面板一致）
+- 录入/修改弹窗去掉作用域下面那条分割线
+- 新增 `tools/import_from_astrbot.py`：从 AstrBot 实例的 jargon.db 搬数据，
+  作用域自动换成 `group:<群号>`，群名从 `data_v4.db` 的 `umo_aliases` 一起搬
+
 ## 0.3.2
 
 - 面板照原插件 `pages/yh/index.html` 重新对齐结构：左右两张卡、标题回到侧栏、
