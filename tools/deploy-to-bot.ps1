@@ -1,4 +1,4 @@
-#requires -Version 5.1
+﻿#requires -Version 5.1
 <#
 .SYNOPSIS
     把开发仓库里的插件部署到机器人项目的 plugins/ 下。
