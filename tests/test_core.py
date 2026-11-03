@@ -1,6 +1,6 @@
 """core/ 的单元测试：不装机器人本体也能跑。
 
-    D:\\AI\\qq-bot-lite\\.venv\\Scripts\\python.exe -m pytest tests -q
+    python -m pytest tests -q      # 用 qq-bot-lite 的 venv，pytest 已经装好了
 """
 
 from __future__ import annotations
