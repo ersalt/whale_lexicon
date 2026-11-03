@@ -67,6 +67,8 @@ whale_lexicon/
 
 主面板「插件」→「设置」，按分组排列；梗百科那几项只在启用梗百科时才出现。
 
+![设置](docs/panel-settings.png)
+
 | 分组 | 键 | 说明 |
 |---|---|---|
 | 基础 | `enabled` / `listen_private` / `blacklist_groups` | 总开关、是否管私聊、屏蔽的群 |
