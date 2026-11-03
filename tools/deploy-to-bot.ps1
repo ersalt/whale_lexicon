@@ -1,4 +1,4 @@
-﻿#requires -Version 5.1
+#requires -Version 5.1
 <#
 .SYNOPSIS
     把开发仓库里的插件部署到机器人项目的 plugins/ 下。
@@ -55,7 +55,7 @@ $version = (Select-String -Path (Join-Path $Source 'plugin.toml') -Pattern '^ver
     Select-Object -First 1).Matches.Groups[1].Value
 
 $ExcludeDirs = @('.git', '__pycache__', '.pytest_cache', '.ruff_cache', 'tests', 'tools', 'docs', '.github', '.venv')
-$ExcludeFiles = @('*.pyc', 'pytest.ini', 'ruff.toml', '.editorconfig', '.gitignore')
+$ExcludeFiles = @('*.pyc', 'pytest.ini', 'ruff.toml', '.editorconfig', '.gitignore', 'AGENTS.md')
 
 $roboArgs = @(
     $Source, $Target,
