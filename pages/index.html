@@ -116,7 +116,8 @@
   font-size: 10.5px;
   line-height: 1.7;
   color: var(--muted-foreground);
-  word-break: break-all;
+  white-space: pre-line;
+  word-break: break-word;
 }
 
 /* ---------- 工具条 ---------- */
@@ -287,7 +288,7 @@ textarea.ctl:focus {
       <div class="split-title">操作</div>
       <div class="side-actions">
         <button class="btn btn-sm" type="button" id="learnBtn">学一批</button>
-        <a class="btn btn-sm" href="/#plugins" target="_blank" rel="noopener">插件设置</a>
+        <a class="btn btn-sm" href="/?plugin=whale_lexicon#plugins" target="_blank" rel="noopener">插件设置</a>
       </div>
       <div class="side-diag" id="diag"></div>
     </aside>
@@ -1024,7 +1025,9 @@ async function boot() {
     $("state-text").textContent = info.enabled
       ? (info.auto_learn ? "自动学习中" : "学了不自动跑") : "已停止";
     $("stat-line").textContent = `词条 ${info.rows} · 待审 ${info.pending} · 梗库 ${info.wiki}`;
-    $("diag").textContent = `手动 ${info.manual} · 自动 ${info.auto}\n词条上限 ${info.limit} 字`;
+    const inject = info.inject || {};
+    $("diag").textContent =
+      `手动 ${info.manual} · 自动 ${info.auto}\n缓冲 ${info.buffer || 0} 条 · 注入命中 ${inject.hits || 0} 次\n词条上限 ${info.limit} 字`;
     $("foot-state").textContent = info.wiki_synced_at
       ? `梗库上次同步 ${fmtDate(Number(info.wiki_synced_at))}`
       : "梗库还没同步过";

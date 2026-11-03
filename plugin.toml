@@ -1,77 +1,223 @@
 title = "鲸语汇"
 description = "群黑话自学习：从群聊里提取、模型自审、按群隔离，命中时注入提示词。"
-version = "0.2.0"
+version = "0.3.0"
 author = "贰叔"
 panel = "/plugins/whale_lexicon"
 
+# ---------- 基础 ----------
+
 [[config]]
 key = "enabled"
-label = "启用学习与注入"
+label = "总开关"
 type = "bool"
 default = true
-help = "关掉之后只是不学不注入，已有词条和面板都还在"
+group = "basic"
+group_label = "基础"
+help = "关掉之后不学也不注入，已有词条和面板都还在"
+
+[[config]]
+key = "listen_private"
+label = "也学习和注入私聊"
+type = "bool"
+default = false
+group = "basic"
+group_label = "基础"
+
+[[config]]
+key = "blacklist_groups"
+label = "不学习的群号"
+type = "text"
+default = ""
+group = "basic"
+group_label = "基础"
+help = "逗号分隔，例如 123456,789012"
+
+# ---------- 自动学习 ----------
 
 [[config]]
 key = "auto_learn"
 label = "自动学习"
 type = "bool"
 default = true
-help = "攒够一批聊天就调模型提取一次；关掉就只能手动触发"
-
-[[config]]
-key = "learn_batch_size"
-label = "每批条数"
-type = "number"
-min = 5
-max = 200
-default = 20
-help = "攒够这么多条群聊才学一次"
+group = "learning"
+group_label = "自动学习"
+help = "关掉就不攒聊天也不自动学，面板的「学一批」也没东西可学"
 
 [[config]]
 key = "learn_frequency"
-label = "最短间隔（秒）"
+label = "每群攒多少条触发"
+type = "number"
+min = 5
+max = 10000
+default = 50
+group = "learning"
+group_label = "自动学习"
+help = "同一个群累计这么多条消息才排队学一次"
+
+[[config]]
+key = "learn_idle_seconds"
+label = "空闲多少秒后才学"
+type = "number"
+min = 0
+max = 3600
+default = 300
+group = "learning"
+group_label = "自动学习"
+help = "距机器人最后一次回复满这么多秒才开始，免得跟聊天抢模型；0 = 不等"
+
+[[config]]
+key = "learn_force_multiplier"
+label = "防饿死倍数"
+type = "number"
+min = 0
+max = 10
+default = 2
+group = "learning"
+group_label = "自动学习"
+help = "缓冲攒到「触发条数 × 这个倍数」就不等空闲直接学；0 = 不强制"
+
+[[config]]
+key = "learn_group_gap_seconds"
+label = "群间隔（秒）"
+type = "number"
+min = 0
+max = 300
+default = 5
+group = "learning"
+group_label = "自动学习"
+help = "多个群排队时，学完一个隔这么久再学下一个"
+
+[[config]]
+key = "learn_batch_size"
+label = "每批多少条"
+type = "number"
+min = 3
+max = 40
+default = 15
+group = "learning"
+group_label = "自动学习"
+help = "一次学习的消息会切成几批提取，太小语境不足，太大单批慢"
+
+[[config]]
+key = "learn_batch_delay_ms"
+label = "批间等待（毫秒）"
+type = "number"
+min = 0
+max = 5000
+default = 600
+group = "learning"
+group_label = "自动学习"
+help = "批与批之间歇一下，给前台聊天让路"
+
+[[config]]
+key = "learn_batch_timeout"
+label = "单批超时（秒）"
 type = "number"
 min = 30
-max = 86400
+max = 600
 default = 300
-help = "同一个群两次学习之间的最小间隔，避免把模型打满"
+group = "learning"
+group_label = "自动学习"
 
 [[config]]
 key = "extract_max"
 label = "单次最多提取"
 type = "number"
 min = 1
-max = 20
+max = 100
 default = 5
+group = "learning"
+group_label = "自动学习"
+
+[[config]]
+key = "extract_extra_json"
+label = "提取请求附加参数"
+type = "text"
+default = "{\"reasoning_effort\": \"none\"}"
+group = "learning"
+group_label = "自动学习"
+help = "JSON，合进提取请求。默认关掉思考：本机实测同样一段聊天 11.8 秒变 1.8 秒，提取质量看不出差别；后端不吃这个参数就清空"
+
+[[config]]
+key = "review_extra_json"
+label = "自审请求附加参数"
+type = "text"
+default = ""
+group = "learning"
+group_label = "自动学习"
+help = "JSON，合进自审请求。默认留空 = 保持思考，判断「含义够不够具体」时更稳"
+
+# ---------- 注入 ----------
 
 [[config]]
 key = "inject_max"
-label = "单条消息最多注入"
+label = "单次最多注入"
 type = "number"
 min = 0
-max = 8
+max = 50
 default = 3
-help = "0 = 不注入"
+group = "inject"
+group_label = "注入"
+help = "一条消息最多带几个词条；0 = 不注入"
 
 [[config]]
 key = "max_meaning_chars"
 label = "释义最大长度"
 type = "number"
 min = 20
-max = 500
+max = 1000
 default = 200
+group = "inject"
+group_label = "注入"
+
+# ---------- 过滤 ----------
 
 [[config]]
 key = "reject_words"
 label = "拒绝词"
 type = "text"
 default = ""
-help = "逗号分隔，这些词永远不会被收录"
+group = "review"
+group_label = "候选过滤"
+help = "逗号分隔，名字命中的候选直接丢弃，不送自审"
+
+# ---------- 梗百科 ----------
 
 [[config]]
 key = "wiki_enable"
-label = "梗百科"
+label = "启用梗百科"
 type = "bool"
 default = true
-help = "面板里多一个只读的梗百科分类；不参与注入，纯粹给你查词用"
+group = "wiki"
+group_label = "梗百科"
+help = "面板多一个只读分类；黑话没命中时用它兜底注入一句"
 
+[[config]]
+key = "wiki_sync_enable"
+label = "自动同步梗百科"
+type = "bool"
+default = false
+group = "wiki"
+group_label = "梗百科"
+show_if = { key = "wiki_enable", value = true }
+
+[[config]]
+key = "wiki_sync_time"
+label = "每天几点同步"
+type = "text"
+default = "04:30"
+group = "wiki"
+group_label = "梗百科"
+show_if = { key = "wiki_enable", value = true }
+help = "24 小时制 HH:MM，到点且距上次同步超过间隔天数才真的拉"
+
+[[config]]
+key = "wiki_sync_interval_days"
+label = "同步间隔（天）"
+type = "number"
+min = 1
+max = 365
+default = 7
+group = "wiki"
+group_label = "梗百科"
+show_if = { key = "wiki_enable", value = true }

@@ -1,14 +1,23 @@
-"""从聊天里提取黑话，再用一次模型自审。
+"""提取 + 自审：原插件 `astrbot_plugin_slang/miner.py` 的移植版。
 
-两段提示词沿用原插件（`astrbot_plugin_slang`）打磨过的版本：
-先让模型按「真实出现过、只有这个群才懂」提取，再逐条判断「含义是否具体」
-和「用法是否稳定」，两道都过才收。
+流程和原版一致：
+1. 把待学消息按 `learn_batch_size` 切批，逐批提取（批间留出间隔，别把本地模型打满）
+2. 合并同名候选、合并关键词
+3. 本地过一遍硬规则：拒绝词、空泛释义、同义反复的「群友 ID」
+4. 一次自审：模型逐条判「含义具体 + 用法稳定」
+5. 本批出现次数 < 2 的一律不算确定；确定的直接进黑话库，其余进待审并写下理由
+
+`learn()` 返回入库条数；全部批次都失败时返回 None，让上层保留缓冲稍后重试。
 """
 
 from __future__ import annotations
 
+import asyncio
 import json
+import logging
 import re
+
+log = logging.getLogger(__name__)
 
 EXTRACT_PROMPT = """你在整理一个 QQ 群的黑话表。下面是从这个群抓的一段聊天。
 
@@ -47,6 +56,8 @@ REVIEW_PROMPT = """判断下面每条值不值得收录成「群黑话」。两�
 {items}
 
 输出："""
+
+SYSTEM_PROMPT = "你是中文群聊语料整理助手，只输出 JSON。"
 
 _FENCE = re.compile(r"```(?:json)?\s*|\s*```")
 
@@ -93,6 +104,7 @@ def clean_meaning(value: str, limit: int) -> str:
 
 
 def parse_words(raw) -> set[str]:
+    """拒绝词表：只按中英文逗号分隔，空格和顿号保留在词里。"""
     if not raw:
         return set()
     return {part.strip().casefold() for part in re.split(r"[,，]+", str(raw)) if part.strip()}
@@ -112,69 +124,188 @@ def is_low_value(name: str, meaning: str) -> bool:
     return any(re.match(pattern, text) for pattern in patterns)
 
 
-class Miner:
-    def __init__(self, llm, settings: dict):
-        self.llm = llm
-        self.max_meaning = int(settings.get("max_meaning_chars") or 200)
-        self.extract_max = int(settings.get("extract_max") or 5)
-        self.reject_words = parse_words(settings.get("reject_words") or "")
+def merge_keywords(a: str, b: str) -> str:
+    out: list[str] = []
+    for raw in (a, b):
+        for part in re.split(r"[,，、;；\s]+", raw or ""):
+            part = part.strip()
+            if part and part not in out:
+                out.append(part)
+    return ",".join(out)[:300]
 
-    async def _chat(self, prompt: str, timeout: float | None = None) -> str:
+
+class Miner:
+    """一次学习 = 分批提取 + 合并 + 本地过滤 + 一次自审 + 落库。"""
+
+    def __init__(self, llm, settings: dict, service):
+        self.llm = llm
+        self.svc = service
+        self.max_meaning = max(20, int(settings.get("max_meaning_chars") or 200))
+        self.extract_max = max(1, int(settings.get("extract_max") or 5))
+        self.reject_words = parse_words(settings.get("reject_words") or "")
+        self.batch_size = max(3, int(settings.get("learn_batch_size") or 15))
+        self.batch_delay = max(0, int(settings.get("learn_batch_delay_ms") or 600)) / 1000
+        self.batch_timeout = max(30, int(settings.get("learn_batch_timeout") or 300))
+        # 提取关思考（实测 11.8s → 1.8s），自审保持思考（判断质量更稳），和原插件默认一致
+        self.extract_extra = _parse_extra(settings.get("extract_extra_json"),
+                                          '{"reasoning_effort": "none"}')
+        self.review_extra = _parse_extra(settings.get("review_extra_json"), "")
+
+    # ---------- 调模型 ----------
+
+    async def _chat(self, prompt: str, extra: dict | None = None) -> str:
         messages = [
-            {"role": "system", "content": "你是中文群聊语料整理助手，只输出 JSON。"},
+            {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": prompt},
         ]
-        return await self.llm.complete(messages)
+        try:
+            text = await asyncio.wait_for(
+                self.llm.complete(messages, override=extra or None,
+                                  timeout=self.batch_timeout),
+                timeout=self.batch_timeout + 5,
+            )
+            return (text or "").strip()
+        except asyncio.TimeoutError:
+            log.warning("[鲸语汇] 模型调用超时（%ss），本批跳过", self.batch_timeout)
+        except Exception as exc:  # noqa: BLE001 - 模型报错不该炸掉学习循环
+            log.warning("[鲸语汇] 模型调用失败：%s", exc)
+        return ""
 
-    async def learn(self, messages: list[dict]) -> list[dict]:
-        """提取 + 自审，返回可以直接入库的条目。"""
-        chat = "\n".join(f"{item['sender']}: {item['text']}" for item in messages)[-4000:]
-        if not chat.strip():
-            return []
-        raw = await self._chat(EXTRACT_PROMPT.replace("{n}", str(self.extract_max)).replace("{chat}", chat))
-        data = parse_json(raw)
-        if not isinstance(data, list):
-            return []
+    # ---------- 主流程 ----------
 
-        candidates: list[dict] = []
-        seen: set[str] = set()
-        for item in data:
+    async def learn(self, scope: str, messages: list[dict], on_progress=None) -> int | None:
+        if not messages:
+            return 0
+        batches = [messages[i : i + self.batch_size]
+                   for i in range(0, len(messages), self.batch_size)]
+        candidates: dict[str, dict] = {}
+        failed = 0
+        log.info("[鲸语汇] %s 开始学习：%d 条 / %d 批", scope, len(messages), len(batches))
+
+        for index, batch in enumerate(batches):
+            text = "\n".join(f"{m['sender']}: {m['text']}" for m in batch)[-4000:]
+            raw = await self._chat(
+                EXTRACT_PROMPT.replace("{n}", str(self.extract_max)).replace("{chat}", text),
+                self.extract_extra)
+            items = parse_json(raw)
+            if not isinstance(items, list):
+                failed += 1
+                log.warning("[鲸语汇] %s 第 %d/%d 批解析失败", scope, index + 1, len(batches))
+            else:
+                self._merge_candidates(candidates, items)
+            if index < len(batches) - 1 and self.batch_delay:
+                await asyncio.sleep(self.batch_delay)
+            if on_progress is not None:
+                on_progress(index + 1, len(batches))
+
+        if failed and failed == len(batches):
+            log.warning("[鲸语汇] %s 全部 %d 批失败，保留缓冲稍后重试", scope, len(batches))
+            return None
+        if not candidates:
+            log.info("[鲸语汇] %s 本轮没提取到条目", scope)
+            return 0
+
+        kept = self._prefilter(scope, list(candidates.values()))
+        if not kept:
+            return 0
+
+        chat = "\n".join(f"{m['sender']}: {m['text']}" for m in messages)[-4000:]
+        verdicts = await self._review(kept)
+        saved = 0
+        for item in kept[: self.extract_max]:
+            certain, reason = verdicts.get(item["name"], (False, "未自审"))
+            freq = chat.count(item["name"])
+            if freq < 2:
+                certain, reason = False, f"仅出现 {freq} 次"
+            elif certain and any(word in item["meaning"] for word in VAGUE_WORDS):
+                certain, reason = False, "含义空泛（同义反复）"
+            self.svc.submit(
+                item["name"], item["meaning"], scope=scope,
+                keywords=item["keywords"], evidence=item["evidence"],
+                auto_note=reason, approved=certain,
+                contributor=self._contributor(messages, item["name"]),
+            )
+            saved += 1
+            log.info("[鲸语汇] %s %s：%s = %s",
+                     scope, "直接入库" if certain else "进待审", item["name"], item["meaning"])
+        log.info("[鲸语汇] %s 学习完成：候选 %d，入库 %d，失败批 %d",
+                 scope, len(candidates), saved, failed)
+        return saved
+
+    # ---------- 内部 ----------
+
+    def _merge_candidates(self, candidates: dict[str, dict], items) -> None:
+        for item in list(items)[: self.extract_max]:
             if not isinstance(item, dict):
                 continue
             name = clean_name(item.get("name"))
             meaning = clean_meaning(item.get("meaning"), self.max_meaning)
             if not name or not meaning:
                 continue
-            low = name.casefold()
-            if not (2 <= len(name) <= 12) or low in seen or low in self.reject_words:
-                continue
-            if low not in chat.casefold():
-                continue  # 原文里没出现过，模型编的
-            if is_low_value(name, meaning) or any(word in meaning for word in VAGUE_WORDS):
-                continue
-            seen.add(low)
-            candidates.append(
-                {
-                    "name": name,
-                    "aliases": clean_meaning(item.get("aliases", ""), 60),
-                    "meaning": meaning,
-                    "evidence": clean_meaning(item.get("evidence", ""), 40),
-                }
-            )
-        if not candidates:
-            return []
+            entry = {
+                "name": name,
+                "meaning": meaning,
+                "keywords": clean_meaning(item.get("aliases"), 60),
+                "evidence": clean_meaning(item.get("evidence"), 60),
+            }
+            current = candidates.get(name)
+            if current is None:
+                candidates[name] = entry
+            else:
+                current["keywords"] = merge_keywords(current["keywords"], entry["keywords"])
+                if not current["evidence"]:
+                    current["evidence"] = entry["evidence"]
 
-        # 第二遍：让模型自己按「具体 + 稳定」过一遍
-        lines = json.dumps(
-            [{"name": c["name"], "meaning": c["meaning"]} for c in candidates], ensure_ascii=False
-        )
-        verdict = parse_json(await self._chat(REVIEW_PROMPT.replace("{items}", lines)))
-        if not isinstance(verdict, list):
-            return candidates[:2]
-        certain = {
-            str(item.get("name", "")).casefold()
-            for item in verdict
-            if isinstance(item, dict) and item.get("certain")
-        }
-        kept = [c for c in candidates if c["name"].casefold() in certain]
-        return kept[: self.extract_max]
+    def _prefilter(self, scope: str, items: list[dict]) -> list[dict]:
+        kept = []
+        for item in items:
+            if not (2 <= len(item["name"]) <= 12):
+                continue
+            if item["name"].casefold() in self.reject_words:
+                log.info("[鲸语汇] %s 命中拒绝词，丢弃：%s", scope, item["name"])
+                continue
+            if is_low_value(item["name"], item["meaning"]):
+                log.info("[鲸语汇] %s 过滤无信息量 ID 词条：%s", scope, item["name"])
+                continue
+            kept.append(item)
+        return kept
+
+    async def _review(self, items: list[dict]) -> dict[str, tuple[bool, str]]:
+        lines = "\n".join(f"- {item['name']}：{item['meaning']}" for item in items)
+        raw = await self._chat(REVIEW_PROMPT.replace("{items}", lines), self.review_extra)
+        data = parse_json(raw)
+        out: dict[str, tuple[bool, str]] = {}
+        if isinstance(data, list):
+            for row in data:
+                if not isinstance(row, dict):
+                    continue
+                name = clean_name(row.get("name"))
+                if not name:
+                    continue
+                out[name] = (bool(row.get("certain")), clean_meaning(row.get("reason"), 30))
+        if not out:
+            log.warning("[鲸语汇] 自审结果解析失败，全部进待审")
+        return out
+
+    @staticmethod
+    def _contributor(messages: list[dict], name: str) -> str:
+        """最早提到这个词的群友。"""
+        for message in messages:
+            if name and name in (message.get("text") or ""):
+                return str(message.get("sender") or "")[:32]
+        return ""
+
+
+def _parse_extra(raw, default: str = "") -> dict:
+    """请求附加参数（JSON）。给「关掉思考」这类后端差异留个口子。"""
+    if isinstance(raw, dict):
+        return raw
+    text = str(raw if raw not in (None, "") else default)
+    if not text:
+        return {}
+    try:
+        value = json.loads(text)
+    except (TypeError, ValueError):
+        log.warning("[鲸语汇] 附加参数不是合法 JSON，忽略：%s", text)
+        return {}
+    return value if isinstance(value, dict) else {}

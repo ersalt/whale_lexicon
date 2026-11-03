@@ -1,5 +1,22 @@
 # 鲸语汇
 
+## 0.3.0
+
+把原插件里没搬过来的功能补齐：
+
+- 学习调度按原版重做：按条数阈值排队、等机器人空闲才开始、
+  防饿死倍数强制启动、单 worker 串行、群间隔、失败保留缓冲并冷却重试
+- 采集侧补齐：`auto_learn` 才攒、私聊开关、群黑名单、跳过自己的消息
+- 提取器补齐：分批 + 批间延迟 + 单批超时、跨批合并关键词、
+  频次过滤（本批出现 <2 次不算确定）、自审通过直接入库、来源群友、自审理由
+- 提取默认关思考（`reasoning_effort: none`，实测 11.8s → 1.8s），自审保持思考
+- 注入：黑话没命中时用梗百科兜底注一句；新增注入计数
+- 梗百科定时同步（时间点 + 间隔天数）
+- `/yh` 命令补齐到原版那套：list / pending / search / add / del / approve /
+  promote / stat / check，外加 learn 和 help
+- 设置项从 9 个扩到 21 个，按基础 / 自动学习 / 注入 / 过滤 / 梗百科分组，
+  梗百科的子项跟着开关显示隐藏（主面板的插件设置弹窗支持 group 和 show_if）
+
 ## 0.2.0
 
 面板按原插件（`astrbot_plugin_slang`）的结构重做，另外补上梗百科：
@@ -12,9 +29,8 @@
 - 录入 / 修改弹窗：词条名、关键词、内容（带字数上限）、作用域
 - 梗百科：移植 `wikinow.py`，拉 cnmeme.wiki 公开词条，只读浏览，手动同步
 - 设置改成跳主面板的插件设置，不再重复造一个配置编辑器
-
-接口：`ping` / `tree` / `list` / `lookup` / `add` / `update` / `delete` /
-`approve` / `bulk` / `learn` / `wiki/sync`。
+- 面板接口：`ping` / `tree` / `list` / `lookup` / `add` / `update` / `delete` /
+  `approve` / `bulk` / `learn` / `wiki/sync`
 
 ## 0.1.0
 
