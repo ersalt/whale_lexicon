@@ -2,191 +2,1047 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#f4f7fb">
 <title>鲸语汇</title>
+<script>
+  // 主题跟主面板共用一份选择，免得一个亮一个暗
+  (function () {
+    try {
+      var saved = localStorage.getItem("qqbotlite-theme");
+      var query = new URLSearchParams(location.search).get("theme");
+      var prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+      var theme = query === "dark" || query === "light" ? query : saved || (prefersDark ? "dark" : "light");
+      document.documentElement.setAttribute("data-theme", theme);
+    } catch (error) {}
+  })();
+</script>
+<link rel="stylesheet" href="/static/style.css">
 <style>
-:root{
-  --bg:#f8fafc; --card:#fff; --line:#e5e7eb; --text:#1f2937; --muted:#6b7280;
-  --primary:#0ea5e9; --primary-fg:#fff; --danger:#ef4444; --ok:#10b981;
+/* 面板自己的布局件；颜色、按钮、弹窗全部走 /static/style.css 的令牌 */
+
+.split-layout { grid-template-columns: 232px minmax(0, 1fr); }
+.split-main { gap: 0; }
+
+/* ---------- 侧栏 ---------- */
+.nav-list { display: grid; gap: 4px; }
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--muted-foreground);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+  transition: background .14s ease, color .14s ease, border-color .14s ease;
 }
-@media (prefers-color-scheme: dark){
-  :root{ --bg:#101418; --card:#181d24; --line:#252b34; --text:#e5e8ed; --muted:#8b929e; --primary:#38bdf8; --primary-fg:#062430; }
+.nav-item:hover { background: var(--muted); color: var(--foreground); }
+.nav-item.active {
+  background: var(--accent);
+  border-color: transparent;
+  color: var(--accent-foreground);
+  font-weight: 600;
 }
-*{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--text);font:14px/1.6 "Segoe UI",system-ui,-apple-system,"Microsoft YaHei",sans-serif}
-.wrap{max-width:900px;margin:0 auto;padding:28px 20px 60px}
-header{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:18px}
-h1{font-size:20px;margin:0}
-.sub{color:var(--muted);font-size:12.5px;margin:2px 0 0}
-.pills{display:flex;gap:8px;flex-wrap:wrap}
-.pill{background:var(--card);border:1px solid var(--line);border-radius:999px;padding:4px 12px;font-size:12px;color:var(--muted)}
-.pill b{color:var(--text);font-family:ui-monospace,Consolas,monospace;font-size:13px}
-.btn{font:inherit;font-size:13px;height:32px;padding:0 14px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--text);cursor:pointer;transition:border-color .15s,background .15s}
-.btn:hover{border-color:var(--primary)}
-.btn:disabled{opacity:.5;cursor:not-allowed}
-.btn.primary{background:var(--primary);border-color:var(--primary);color:var(--primary-fg);font-weight:600}
-.btn.ghost{background:transparent}
-.toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
-.tabs{display:flex;gap:4px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:4px}
-.tab{border:0;background:transparent;color:var(--muted);font:inherit;font-size:13px;padding:6px 14px;border-radius:7px;cursor:pointer}
-.tab.on{background:var(--primary);color:var(--primary-fg);font-weight:600}
-input[type=search]{flex:1;min-width:180px;height:34px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--text);padding:0 12px;font:inherit}
-.list{display:grid;gap:10px}
-.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;display:flex;gap:14px;align-items:flex-start;justify-content:space-between}
-.name{font-weight:600}
-.meaning{color:var(--muted);font-size:13px;margin-top:2px}
-.meta{color:var(--muted);font-size:11.5px;margin-top:6px;font-family:ui-monospace,Consolas,monospace}
-.actions{display:flex;gap:6px;flex:none}
-.empty{border:1px dashed var(--line);border-radius:12px;padding:28px;text-align:center;color:var(--muted)}
-.toast{position:fixed;left:50%;bottom:24px;transform:translate(-50%,10px);background:var(--card);border:1px solid var(--line);border-radius:999px;padding:9px 18px;opacity:0;pointer-events:none;transition:.18s;font-size:13px}
-.toast.show{opacity:1;transform:translate(-50%,0)}
-.toast.bad{border-color:var(--danger);color:var(--danger)}
+.nav-caret {
+  width: 10px;
+  font-size: 10px;
+  opacity: .55;
+  flex: none;
+  text-align: center;
+}
+.nav-caret.blank { visibility: hidden; }
+.nav-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nav-count {
+  flex: none;
+  min-width: 22px;
+  padding: 0 7px;
+  height: 19px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: var(--muted);
+  color: var(--muted-foreground);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  line-height: 1;
+}
+.nav-item.active .nav-count { background: color-mix(in oklab, var(--accent-foreground) 14%, transparent); color: var(--accent-foreground); }
+
+.nav-subs { display: grid; gap: 2px; padding: 2px 0 6px 10px; }
+.nav-sub {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 5px 8px 5px 10px;
+  border: 0;
+  border-left: 2px solid var(--border);
+  border-radius: 0 var(--radius-control) var(--radius-control) 0;
+  background: transparent;
+  color: var(--muted-foreground);
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+  transition: background .14s ease, color .14s ease, border-color .14s ease;
+}
+.nav-sub:hover { background: var(--muted); color: var(--foreground); }
+.nav-sub.active { background: var(--accent); border-left-color: var(--ring); color: var(--accent-foreground); }
+.nav-sub-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nav-sub-count { font-family: var(--mono); font-size: 10.5px; opacity: .8; flex: none; }
+.nav-subs:empty { display: none; }
+
+.side-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.side-actions .btn {
+  width: 100%;
+  height: 30px;
+  padding: 0 8px;
+  font-size: 12.5px;
+  box-shadow: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+.side-diag {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  line-height: 1.7;
+  color: var(--muted-foreground);
+  word-break: break-all;
+}
+
+/* ---------- 工具条 ---------- */
+.toolbar { margin-bottom: 14px; align-items: flex-end; }
+.toolbar h1 { font-size: 20px; }
+.toolbar-actions { align-items: center; flex-wrap: wrap; }
+.toolbar-actions .ctl-search { width: 200px; }
+.toolbar-actions select { width: 114px; flex: none; }
+.toolbar-actions .btn { flex: none; }
+
+/* ---------- 批量条 ---------- */
+.bulkbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+  padding: 8px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--card);
+  font-size: 12.5px;
+  color: var(--muted-foreground);
+}
+.bulkbar label { display: flex; align-items: center; gap: 7px; cursor: pointer; }
+.bulkbar input[type="checkbox"] { width: 14px; height: 14px; margin: 0; accent-color: var(--primary); }
+.bulkbar .spacer { flex: 1; }
+.bulkbar .btn { height: 28px; padding: 0 12px; font-size: 12.5px; }
+.btn-danger { color: var(--destructive); border-color: color-mix(in oklab, var(--destructive) 32%, var(--border)); }
+.btn-danger:hover { border-color: var(--destructive); background: color-mix(in oklab, var(--destructive) 8%, var(--card)); }
+.btn-danger:disabled { color: var(--muted-foreground); border-color: var(--border); background: var(--card); }
+
+/* ---------- 词条 ---------- */
+.entries { display: grid; gap: 8px; }
+.entry {
+  display: grid;
+  grid-template-columns: minmax(72px, 104px) minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: start;
+  padding: 12px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--card);
+  box-shadow: var(--shadow-card);
+  transition: border-color .14s ease;
+}
+.entry:hover { border-color: color-mix(in oklab, var(--border) 55%, var(--muted-foreground)); }
+.entry.picked { border-color: var(--ring); background: color-mix(in oklab, var(--accent) 32%, var(--card)); }
+.entry.has-pick { grid-template-columns: 18px minmax(72px, 104px) minmax(0, 1fr) auto; }
+.entry input[type="checkbox"] { width: 15px; height: 15px; margin: 3px 0 0; accent-color: var(--primary); cursor: pointer; }
+.entry-name { font-size: 13.5px; font-weight: 600; word-break: break-word; line-height: 1.5; padding-top: 1px; }
+.entry-body { min-width: 0; }
+.entry-meaning { margin: 0; font-size: 13px; color: var(--foreground); line-height: 1.6; word-break: break-word; }
+.entry-meaning.empty { color: var(--muted-foreground); }
+/* 梗百科动辄两百字，列表里先截四行，想看全的把鼠标放上去 */
+.entry.is-wiki .entry-meaning {
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.entry-note { margin: 4px 0 0; font-size: 11.5px; color: var(--muted-foreground); }
+.entry-meta {
+  margin: 5px 0 0;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--muted-foreground);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+}
+.entry-meta .tag { padding: 0 6px; border-radius: 999px; background: var(--muted); }
+.entry-ops { display: flex; gap: 6px; flex: none; align-items: center; align-self: center; }
+.entry-ops .btn { height: 28px; padding: 0 11px; font-size: 12px; box-shadow: none; }
+.entry-ops .armed { background: var(--destructive); border-color: transparent; color: #fff; }
+.entry-ro { font-size: 11.5px; color: var(--muted-foreground); white-space: nowrap; }
+
+.entry-empty {
+  padding: 56px 20px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  color: var(--muted-foreground);
+  font-size: 13px;
+  text-align: center;
+}
+
+/* ---------- 分页 ---------- */
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  margin-top: 16px;
+  font-size: 12.5px;
+  color: var(--muted-foreground);
+}
+.pager .btn { height: 28px; padding: 0 12px; font-size: 12.5px; }
+
+/* ---------- 弹窗表单 ---------- */
+.dialog { width: min(520px, 100%); }
+.form-field { display: grid; gap: 6px; margin-bottom: 14px; }
+.form-field > label { font-size: 12.5px; font-weight: 500; }
+.label-row { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.counter { font-family: var(--mono); font-size: 10.5px; color: var(--muted-foreground); }
+.counter.over { color: var(--destructive); font-weight: 600; }
+textarea.ctl {
+  width: 100%;
+  min-height: 92px;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--foreground);
+  background: var(--card);
+  border: 1px solid var(--input);
+  border-radius: var(--radius-control);
+  padding: 8px 11px;
+  resize: vertical;
+}
+textarea.ctl:focus {
+  outline: none;
+  border-color: var(--ring);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 22%, transparent);
+}
+.dialog-foot .btn { box-shadow: none; }
+.confirm-text { margin: 0; font-size: 13px; line-height: 1.7; color: var(--foreground); white-space: pre-wrap; }
+
+@media (max-width: 880px) {
+  .split-layout { grid-template-columns: 1fr; }
+  .split-side { position: static; }
+  .entry, .entry.has-pick {
+    grid-template-columns: 1fr;
+    grid-template-areas: "name" "body" "ops";
+    gap: 8px;
+  }
+  .entry.has-pick { grid-template-areas: "pick" "name" "body" "ops"; }
+  .entry > .entry-pick { grid-area: pick; }
+  .entry-name { grid-area: name; }
+  .entry-body { grid-area: body; }
+  .entry-ops { grid-area: ops; }
+  .toolbar-actions { width: 100%; }
+  .toolbar-actions .ctl-search { flex: 1; width: auto; }
+}
 </style>
 </head>
 <body>
-<div class="wrap">
-  <header>
-    <div>
-      <h1>鲸语汇</h1>
-      <p class="sub">群黑话自学习：提取 → 自审 → 待审 → 注入</p>
+<div class="page">
+
+  <header class="head">
+    <div class="brand">
+      <span class="brand-name">鲸语汇</span>
+      <span class="brand-ver" id="ver">v0.2.0</span>
     </div>
-    <div class="pills" id="pills"></div>
+    <div class="head-right">
+      <div class="status">
+        <span class="dot" id="dot"></span>
+        <span id="state-text">读取中</span>
+        <span class="status-sep"></span>
+        <span class="mono" id="stat-line"></span>
+      </div>
+      <button class="icon-btn" id="theme" type="button" aria-label="切换主题">◐</button>
+    </div>
   </header>
 
-  <div class="toolbar">
-    <div class="tabs">
-      <button class="tab on" data-bucket="pending">待审</button>
-      <button class="tab" data-bucket="auto">自动收录</button>
-      <button class="tab" data-bucket="manual">手动录入</button>
-    </div>
-    <input type="search" id="search" placeholder="搜名字或释义">
-    <button class="btn primary" id="learn">学一批</button>
+  <div class="split-layout">
+
+    <aside class="split-side">
+      <div class="split-title">词条库</div>
+      <div class="nav-list" id="nav"></div>
+      <div class="split-title">操作</div>
+      <div class="side-actions">
+        <button class="btn btn-sm" type="button" id="learnBtn">学一批</button>
+        <a class="btn btn-sm" href="/#plugins" target="_blank" rel="noopener">插件设置</a>
+      </div>
+      <div class="side-diag" id="diag"></div>
+    </aside>
+
+    <main class="split-main">
+      <div class="toolbar">
+        <div class="toolbar-text">
+          <h1 id="title">待审</h1>
+          <p id="subtitle">读取中</p>
+        </div>
+        <div class="toolbar-actions">
+          <select id="sort" title="排序方式">
+            <option value="recent">最新优先</option>
+            <option value="count">次数优先</option>
+          </select>
+          <input type="text" id="search" class="ctl-search" placeholder="搜词条或释义（/ 聚焦）" autocomplete="off">
+          <button class="btn" type="button" id="syncBtn" hidden>同步梗库</button>
+          <button class="btn btn-primary" type="button" id="addBtn">手动录入</button>
+        </div>
+      </div>
+
+      <div class="bulkbar" id="bulkbar" hidden>
+        <label><input type="checkbox" id="pickAll"> 全选本页</label>
+        <span id="pickInfo">已选 0 条</span>
+        <span class="spacer"></span>
+        <button class="btn btn-sm" type="button" id="bulkApprove" disabled>通过所选</button>
+        <button class="btn btn-sm btn-danger" type="button" id="bulkDelete" disabled>删除所选</button>
+      </div>
+
+      <div class="entries" id="list"></div>
+      <div class="pager" id="pager" hidden></div>
+    </main>
   </div>
 
-  <div class="list" id="list"></div>
+  <footer class="foot">
+    <span>数据目录 <code id="dbpath">data/plugin_data/whale_lexicon</code></span>
+    <span id="foot-state">未加载</span>
+  </footer>
 </div>
-<div class="toast" id="toast"></div>
+
+<!-- 录入 / 修改 -->
+<div class="overlay" id="editMask" hidden>
+  <div class="dialog">
+    <div class="dialog-head">
+      <h2 id="editTitle">手动录入</h2>
+      <button class="icon-btn" type="button" data-close aria-label="关闭">×</button>
+    </div>
+    <p class="dialog-sub" id="editSub">录入的词条会直接进「手动」，参与注入。</p>
+    <div class="dialog-body">
+      <div class="form-field">
+        <label for="fName">词条名</label>
+        <input type="text" id="fName" maxlength="32" autocomplete="off" placeholder="例如：梁文锋">
+      </div>
+      <div class="form-field">
+        <label for="fKeywords">关键词</label>
+        <input type="text" id="fKeywords" maxlength="300" autocomplete="off" placeholder="触发词，逗号分隔；不填就只用词条名">
+      </div>
+      <div class="form-field">
+        <div class="label-row">
+          <label for="fMeaning">内容</label>
+          <span class="counter" id="fCount">0/200</span>
+        </div>
+        <textarea class="ctl" id="fMeaning" placeholder="注入给模型的解释，一句话就够"></textarea>
+      </div>
+      <div class="form-field">
+        <label for="fScope">作用域</label>
+        <select id="fScope"></select>
+      </div>
+      <p class="hint" id="editHint"></p>
+    </div>
+    <div class="dialog-foot">
+      <button class="btn" type="button" data-close>取消</button>
+      <button class="btn btn-primary" type="button" id="editSave">确认</button>
+    </div>
+  </div>
+</div>
+
+<!-- 二次确认 -->
+<div class="overlay" id="confirmMask" hidden>
+  <div class="dialog" style="width:min(420px,100%)">
+    <div class="dialog-head">
+      <h2 id="confirmTitle">确认</h2>
+      <button class="icon-btn" type="button" data-close aria-label="关闭">×</button>
+    </div>
+    <div class="dialog-body">
+      <p class="confirm-text" id="confirmText"></p>
+    </div>
+    <div class="dialog-foot">
+      <button class="btn" type="button" data-close>取消</button>
+      <button class="btn btn-primary" type="button" id="confirmOk">确定</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script>
+"use strict";
+
+const $ = (id) => document.getElementById(id);
+const SOURCE = { manual: "手动", ai: "自动", wiki: "梗百科" };
+
 const state = {
-  bucket: new URLSearchParams(location.search).get("bucket") || "pending",
+  bucket: "pending",
+  scope: "",
+  scoped: false,
   search: "",
+  sort: "recent",
+  page: 1,
+  size: 50,
+  tree: null,
+  names: {},          // scope -> 群名
+  items: new Map(),   // id -> 词条
+  selected: new Set(),
+  collapsed: new Set(),
+  limit: 200,
+  editing: null,      // 正在改的词条；null 表示新增
+  confirmHandler: null,
 };
 
-function toast(message, bad){
-  const node = document.getElementById("toast");
+/* ---------- 基础 ---------- */
+
+function esc(value) {
+  return String(value === null || value === undefined ? "" : value)
+    .replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
+}
+
+function fmtDate(ts) {
+  if (!ts) return "";
+  const d = new Date(Number(ts) * 1000);
+  const p = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+function scopeLabel(scope) {
+  if (!scope) return "全局";
+  if (state.names[scope]) return state.names[scope];
+  const at = scope.lastIndexOf(":");
+  const kind = at >= 0 ? scope.slice(0, at) : "";
+  const ident = at >= 0 ? scope.slice(at + 1) : scope;
+  if (kind === "group") return `群 ${ident}`;
+  if (kind === "private") return `私聊 ${ident}`;
+  return scope;
+}
+
+function toast(message, kind) {
+  const node = $("toast");
   node.textContent = message;
-  node.className = "toast show" + (bad ? " bad" : "");
+  node.className = "toast show" + (kind ? " " + kind : "");
   clearTimeout(toast.timer);
-  toast.timer = setTimeout(() => { node.className = "toast"; }, 2400);
+  toast.timer = setTimeout(() => { node.className = "toast"; }, 2600);
 }
 
-async function api(path, body){
-  const res = await fetch("./" + path, body ? {
-    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
-  } : {});
-  return await res.json();
+async function req(path, body) {
+  const init = body === undefined ? {} : {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  };
+  const res = await fetch("./" + path, init);
+  let data = null;
+  try { data = await res.json(); } catch (error) { /* 非 JSON 时下面统一报错 */ }
+  if (!data) throw new Error(`服务器返回了 ${res.status}`);
+  if (!res.ok || data.ok === false) throw new Error(data.message || `请求失败（${res.status}）`);
+  return data;
 }
 
-function renderPills(stats){
-  const data = stats || {};
-  const items = [
-    ["总词条", data.total || 0], ["手动", data.manual || 0],
-    ["自动", data.auto || 0], ["待审", data.pending || 0],
-  ];
-  document.getElementById("pills").innerHTML = items
-    .map(([k, v]) => `<span class="pill">${k} <b>${v}</b></span>`).join("");
+/* ---------- 弹窗 ---------- */
+
+function openMask(node) {
+  node.hidden = false;
+  requestAnimationFrame(() => node.classList.add("show"));
 }
 
-function esc(text){
-  return String(text || "").replace(/[&<>"]/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[ch]));
+function closeMask(node) {
+  node.classList.remove("show");
+  setTimeout(() => { node.hidden = true; }, 160);
 }
 
-function row(item){
-  const name = item.content || item.name || "";
-  const pending = state.bucket === "pending";
-  const actions = pending
-    ? `<button class="btn primary" data-act="approve">通过</button><button class="btn" data-act="delete">丢弃</button>`
-    : `<button class="btn" data-act="delete">删除</button>`;
-  const meta = [item.source, item.scope || "全局", `${item.count || 1} 次`].filter(Boolean).join(" · ");
-  return `<div class="card" data-name="${esc(name)}" data-scope="${esc(item.scope || "")}"
-               data-table="${esc(item.table || "")}">
-    <div>
-      <div class="name">${esc(name)}</div>
-      <div class="meaning">${esc(item.meaning)}</div>
-      <div class="meta">${esc(meta)}</div>
-    </div>
-    <div class="actions">${actions}</div>
-  </div>`;
+function showConfirm(title, text, okLabel, onOk) {
+  $("confirmTitle").textContent = title;
+  $("confirmText").textContent = text;
+  $("confirmOk").textContent = okLabel || "确定";
+  state.confirmHandler = onOk;
+  openMask($("confirmMask"));
 }
 
-async function load(){
-  const params = new URLSearchParams({ bucket: state.bucket, search: state.search, size: "100" });
-  const data = await api("list?" + params.toString());
-  if (!data.ok){ document.getElementById("list").innerHTML = `<div class="empty">${esc(data.message || "读取失败")}</div>`; return; }
-  renderPills(data.stats);
-  const items = data.items || [];
-  document.getElementById("list").innerHTML = items.length
-    ? items.map(row).join("")
-    : `<div class="empty">${state.bucket === "pending" ? "待审池是空的" : "还没有词条"}</div>`;
-}
-
-document.getElementById("list").addEventListener("click", async (event) => {
-  const button = event.target.closest("button[data-act]");
-  if (!button) return;
-  const card = button.closest(".card");
-  const payload = { name: card.dataset.name, scope: card.dataset.scope };
-  button.disabled = true;
-  try {
-    if (button.dataset.act === "approve") {
-      const data = await api("approve", payload);
-      toast(data.ok ? data.message || "已通过" : data.message || "失败", !data.ok);
-    } else {
-      payload.table = card.dataset.table;
-      const data = await api("delete", payload);
-      toast(data.ok ? data.message || "已删除" : data.message || "失败", !data.ok);
-    }
-    await load();
-  } finally {
-    button.disabled = false;
-  }
+$("confirmOk").addEventListener("click", async () => {
+  const handler = state.confirmHandler;
+  state.confirmHandler = null;
+  closeMask($("confirmMask"));
+  if (handler) await handler();
 });
 
-document.querySelectorAll(".tab").forEach(tab => {
-  tab.addEventListener("click", () => {
-    document.querySelectorAll(".tab").forEach(t => t.classList.toggle("on", t === tab));
-    state.bucket = tab.dataset.bucket;
-    load();
+document.querySelectorAll("[data-close]").forEach((node) => {
+  node.addEventListener("click", () => closeMask(node.closest(".overlay")));
+});
+
+document.querySelectorAll(".overlay").forEach((mask) => {
+  mask.addEventListener("click", (event) => {
+    if (event.target === mask) closeMask(mask);
   });
 });
 
-let typing;
-document.getElementById("search").addEventListener("input", (event) => {
-  state.search = event.target.value.trim();
-  clearTimeout(typing);
-  typing = setTimeout(load, 250);
+/* ---------- 侧栏 ---------- */
+
+function renderNav() {
+  const tree = state.tree;
+  if (!tree) return;
+  $("nav").innerHTML = tree.buckets.map((bucket) => {
+    const active = state.bucket === bucket.key && !state.scoped ? " active" : "";
+    const hasSubs = bucket.subs && bucket.subs.length;
+    const collapsed = state.collapsed.has(bucket.key);
+    const caret = hasSubs
+      ? `<span class="nav-caret" data-caret="${esc(bucket.key)}">${collapsed ? "▸" : "▾"}</span>`
+      : `<span class="nav-caret blank"></span>`;
+    let html = `<button class="nav-item${active}" type="button" data-bucket="${esc(bucket.key)}">
+      ${caret}
+      <span class="nav-label">${esc(bucket.label)}</span>
+      <span class="nav-count">${bucket.count}</span>
+    </button>`;
+    if (hasSubs && !collapsed) {
+      html += `<div class="nav-subs">` + bucket.subs.map((sub) => {
+        const on = state.bucket === bucket.key && state.scoped && state.scope === sub.scope ? " active" : "";
+        return `<button class="nav-sub${on}" type="button"
+          data-bucket="${esc(bucket.key)}" data-scope="${esc(sub.scope)}">
+          <span class="nav-sub-name">${esc(sub.name || scopeLabel(sub.scope))}</span>
+          <span class="nav-sub-count">${sub.count}</span>
+        </button>`;
+      }).join("") + `</div>`;
+    }
+    return html;
+  }).join("");
+}
+
+$("nav").addEventListener("click", (event) => {
+  const caret = event.target.closest("[data-caret]");
+  if (caret) {
+    const key = caret.dataset.caret;
+    if (state.collapsed.has(key)) state.collapsed.delete(key);
+    else state.collapsed.add(key);
+    renderNav();
+    return;
+  }
+  const sub = event.target.closest(".nav-sub");
+  if (sub) {
+    state.bucket = sub.dataset.bucket;
+    state.scope = sub.dataset.scope || "";
+    state.scoped = true;
+    state.page = 1;
+    state.search = "";
+    $("search").value = "";
+    renderNav();
+    loadList();
+    return;
+  }
+  const item = event.target.closest(".nav-item");
+  if (!item) return;
+  const key = item.dataset.bucket;
+  if (state.bucket === key && !state.scoped) {
+    const bucket = state.tree && state.tree.buckets.find((b) => b.key === key);
+    if (bucket && bucket.subs && bucket.subs.length) {
+      if (state.collapsed.has(key)) state.collapsed.delete(key);
+      else state.collapsed.add(key);
+      renderNav();
+      return;
+    }
+  }
+  state.bucket = key;
+  state.scope = "";
+  state.scoped = false;
+  state.collapsed.delete(key);
+  state.page = 1;
+  state.search = "";
+  $("search").value = "";
+  renderNav();
+  loadList();
 });
 
-document.getElementById("learn").addEventListener("click", async (event) => {
-  const button = event.currentTarget;
-  button.disabled = true;
-  button.textContent = "学习中…";
-  try {
-    const data = await api("learn", {});
-    toast(data.ok ? `新增 ${data.added} 条待审` : (data.message || "失败"), !data.ok);
-    await load();
-  } finally {
-    button.disabled = false;
-    button.textContent = "学一批";
+/* ---------- 列表 ---------- */
+
+function titleOf() {
+  const bucket = state.tree && state.tree.buckets.find((b) => b.key === state.bucket);
+  const label = bucket ? bucket.label : "全部";
+  if (state.scoped) return `${label} · ${scopeLabel(state.scope)}`;
+  return label;
+}
+
+function scopeOptions(current) {
+  const options = [`<option value="__global__">全局（所有群）</option>`];
+  const seen = new Set();
+  (state.tree ? state.tree.buckets : []).forEach((bucket) => {
+    (bucket.subs || []).forEach((sub) => {
+      if (!sub.scope || seen.has(sub.scope)) return;
+      seen.add(sub.scope);
+      options.push(`<option value="${esc(sub.scope)}">${esc(sub.name || scopeLabel(sub.scope))}</option>`);
+    });
+  });
+  if (current && !seen.has(current)) {
+    options.push(`<option value="${esc(current)}">${esc(scopeLabel(current))}</option>`);
+  }
+  return options.join("");
+}
+
+function entryHTML(item) {
+  const name = item.content || "";
+  const pending = state.bucket === "pending" && !item.read_only;
+  const picked = state.selected.has(item.id) ? " picked" : "";
+  const pickBox = pending
+    ? `<input type="checkbox" class="entry-pick" ${picked ? "checked" : ""} aria-label="选择 ${esc(name)}">`
+    : "";
+
+  const meta = [];
+  meta.push(`<span class="tag">${esc(SOURCE[item.source] || item.source)}</span>`);
+  if (item.scope) meta.push(`<span>${esc(scopeLabel(item.scope))}</span>`);
+  if (item.count > 1) meta.push(`<span>累计 ${item.count} 次</span>`);
+  if (item.updated_at) meta.push(`<span>${fmtDate(item.updated_at)}</span>`);
+  // 「自动提取」「手动录入」这类默认来源没信息量，只有真名才显示
+  const who = (item.contributor || "").trim();
+  if (who && !["自动提取", "自动", "手动录入"].includes(who)) {
+    meta.push(`<span>来源 ${esc(who)}</span>`);
+  }
+  if (item.auto_note) meta.push(`<span>${esc(String(item.auto_note).slice(0, 28))}</span>`);
+
+  const note = item.keywords ? `<p class="entry-note">关键词：${esc(item.keywords)}</p>` : "";
+  const ops = item.read_only
+    ? `<span class="entry-ro">只读 · 梗百科</span>`
+    : `<div class="entry-ops">
+        <button class="btn btn-sm" type="button" data-act="approve">${pending ? "通过" : "驳回"}</button>
+        <button class="btn btn-sm" type="button" data-act="edit">修改</button>
+        <button class="btn btn-sm btn-danger" type="button" data-act="del">删除</button>
+      </div>`;
+
+  return `<article class="entry${pickBox ? " has-pick" : ""}${picked}${item.read_only ? " is-wiki" : ""}" data-key="${esc(item.id)}">
+    ${pickBox}
+    <div class="entry-name">${esc(name)}</div>
+    <div class="entry-body">
+      <p class="entry-meaning${item.meaning ? "" : " empty"}" title="${esc(item.meaning)}">${esc(item.meaning) || "（没有内容）"}</p>
+      ${note}
+      <p class="entry-meta">${meta.join("")}</p>
+    </div>
+    ${ops}
+  </article>`;
+}
+
+function renderPager(total, page, size) {
+  const box = $("pager");
+  const pages = Math.max(1, Math.ceil(total / size));
+  if (total <= size) { box.hidden = true; return; }
+  box.hidden = false;
+  box.innerHTML = `<button class="btn btn-sm" type="button" data-page="${page - 1}" ${page <= 1 ? "disabled" : ""}>上一页</button>
+    <span>第 ${page} / ${pages} 页 · 共 ${total} 条</span>
+    <button class="btn btn-sm" type="button" data-page="${page + 1}" ${page >= pages ? "disabled" : ""}>下一页</button>`;
+}
+
+$("pager").addEventListener("click", (event) => {
+  const button = event.target.closest("button[data-page]");
+  if (!button || button.disabled) return;
+  state.page = Number(button.dataset.page);
+  loadList();
+});
+
+function syncBulk() {
+  const isPending = state.bucket === "pending" && state.items.size > 0;
+  $("bulkbar").hidden = !isPending;
+  if (!isPending) return;
+  const count = state.selected.size;
+  $("pickInfo").textContent = `已选 ${count} 条`;
+  $("bulkApprove").disabled = count === 0;
+  $("bulkDelete").disabled = count === 0;
+  const picks = Array.from(document.querySelectorAll("#list .entry-pick"));
+  $("pickAll").checked = picks.length > 0 && picks.every((box) => box.checked);
+  $("pickAll").indeterminate = count > 0 && !$("pickAll").checked;
+}
+
+async function loadTree() {
+  const data = await req("tree");
+  state.tree = data;
+  state.names = {};
+  (data.buckets || []).forEach((bucket) => {
+    (bucket.subs || []).forEach((sub) => {
+      if (sub.scope && sub.name) state.names[sub.scope] = sub.name;
+    });
+  });
+  renderNav();
+}
+
+async function loadList() {
+  const params = new URLSearchParams({
+    bucket: state.bucket,
+    search: state.search,
+    scope: state.scoped ? state.scope : "",
+    scoped: state.scoped ? "true" : "false",
+    page: String(state.page),
+    size: String(state.size),
+    sort: state.sort,
+  });
+  const data = await req("list?" + params.toString());
+  if (!data.items.length && state.page > 1) {
+    state.page -= 1;
+    return loadList();
+  }
+  state.items.clear();
+  state.selected.clear();
+
+  const bucket = state.tree && state.tree.buckets.find((b) => b.key === state.bucket);
+  const label = bucket ? bucket.label : state.bucket;
+  $("title").textContent = titleOf();
+  $("subtitle").textContent = data.total ? `共 ${data.total} 条` : "这里还是空的";
+  $("addBtn").hidden = state.bucket === "wiki";
+  $("syncBtn").hidden = state.bucket !== "wiki";
+  $("sort").hidden = state.bucket === "wiki";
+
+  (data.items || []).forEach((item) => state.items.set(item.id, item));
+  $("list").innerHTML = (data.items || []).length
+    ? data.items.map(entryHTML).join("")
+    : `<div class="entry-empty">${state.bucket === "pending" ? "待审池是空的，攒够聊天会自己学" : `「${esc(label)}」还没有词条`}</div>`;
+  syncBulk();
+  renderPager(data.total, data.page || state.page, data.size || state.size);
+}
+
+async function refresh() {
+  try { await loadTree(); } catch (error) { toast(`侧栏读取失败：${error.message}`, "bad"); }
+  try { await loadList(); } catch (error) {
+    $("list").innerHTML = `<div class="entry-empty">列表读取失败：${esc(error.message)}</div>`;
+  }
+}
+
+/* ---------- 词条操作 ---------- */
+
+$("list").addEventListener("change", (event) => {
+  const box = event.target.closest(".entry-pick");
+  if (!box) return;
+  const row = box.closest(".entry");
+  const key = row.dataset.key;
+  if (box.checked) state.selected.add(key);
+  else state.selected.delete(key);
+  row.classList.toggle("picked", box.checked);
+  syncBulk();
+});
+
+$("list").addEventListener("click", async (event) => {
+  const button = event.target.closest("button[data-act]");
+  if (!button) return;
+  const row = button.closest(".entry");
+  const item = state.items.get(row.dataset.key);
+  if (!item) return;
+  const act = button.dataset.act;
+
+  if (act === "confirm-del") {
+    button.disabled = true;
+    try {
+      const data = await req("delete", { table: item.table, name: item.content, scope: item.scope || "" });
+      toast(data.message || "已删除", "ok");
+      await refresh();
+    } catch (error) {
+      toast(error.message, "bad");
+      button.disabled = false;
+    }
+    return;
+  }
+  if (act === "cancel") {
+    closeArmed(row);
+    return;
+  }
+  if (act === "del") {
+    armDelete(row);
+    return;
+  }
+  if (act === "approve") {
+    button.disabled = true;
+    try {
+      const data = await req("approve", { table: item.table, name: item.content, scope: item.scope || "" });
+      toast(data.message || "已处理", "ok");
+      await refresh();
+    } catch (error) {
+      toast(error.message, "bad");
+      button.disabled = false;
+    }
+    return;
+  }
+  if (act === "edit") {
+    openEditor(item);
   }
 });
 
-document.querySelectorAll(".tab").forEach(tab => {
-  tab.classList.toggle("on", tab.dataset.bucket === state.bucket);
+function armDelete(row) {
+  const ops = row.querySelector(".entry-ops");
+  if (!ops || ops.dataset.armed) return;
+  ops.dataset.armed = "1";
+  ops.dataset.backup = ops.innerHTML;
+  ops.innerHTML = `<button class="btn btn-sm armed" type="button" data-act="confirm-del">确认删除</button>
+    <button class="btn btn-sm" type="button" data-act="cancel">取消</button>`;
+}
+
+function closeArmed(row) {
+  const ops = row.querySelector(".entry-ops");
+  if (!ops || !ops.dataset.armed) return;
+  ops.innerHTML = ops.dataset.backup || "";
+  delete ops.dataset.armed;
+  delete ops.dataset.backup;
+}
+
+/* ---------- 录入 / 修改 ---------- */
+
+function updateCounter() {
+  const text = $("fMeaning").value || "";
+  const over = text.length > state.limit;
+  $("fCount").textContent = `${text.length}/${state.limit}`;
+  $("fCount").classList.toggle("over", over);
+  $("editSave").disabled = over || !text.trim() || !$("fName").value.trim();
+}
+
+$("fMeaning").addEventListener("input", updateCounter);
+$("fName").addEventListener("input", updateCounter);
+
+function openEditor(item) {
+  state.editing = item || null;
+  const editing = Boolean(item);
+  $("editTitle").textContent = editing ? "修改词条" : "手动录入";
+  $("editSub").textContent = editing
+    ? "改完直接生效；改名或改作用域会做重名检查。"
+    : "录入的词条会直接进「手动」，参与注入。";
+  const scope = item ? item.scope : (state.scoped ? state.scope : "");
+  $("fScope").innerHTML = scopeOptions(scope);
+  $("fName").value = item ? item.content : "";
+  $("fKeywords").value = item ? (item.keywords || "") : "";
+  $("fMeaning").value = item ? (item.meaning || "") : "";
+  $("fScope").value = scope || "__global__";
+  $("editHint").textContent = "";
+  updateCounter();
+  openMask($("editMask"));
+  setTimeout(() => $("fName").focus(), 60);
+}
+
+$("addBtn").addEventListener("click", () => openEditor(null));
+
+$("editSave").addEventListener("click", async () => {
+  const name = $("fName").value.trim();
+  const meaning = $("fMeaning").value.trim();
+  const keywords = $("fKeywords").value.trim();
+  const raw = $("fScope").value;
+  const scope = raw === "__global__" ? "" : raw;
+  if (!name || !meaning) { toast("词条名和内容都要填", "bad"); return; }
+
+  const button = $("editSave");
+  button.disabled = true;
+  try {
+    if (state.editing) {
+      const item = state.editing;
+      const data = await req("update", {
+        table: item.table, old_name: item.content, old_scope: item.scope || "",
+        name, meaning, keywords, scope,
+      });
+      toast(data.message || "已更新", "ok");
+      closeMask($("editMask"));
+      state.editing = null;
+      await refresh();
+    } else {
+      const dup = await req("lookup", { name, scope });
+      const manual = (dup.items || []).find((x) => x.source === "manual");
+      if (manual) {
+        $("editHint").textContent = `「${name}」在这个作用域已经有了（${manual.table === "manual" ? "手动" : "手动待审"}），要改内容请用「修改」。`;
+        toast("已存在同名手动词条", "bad");
+        button.disabled = false;
+        return;
+      }
+      const auto = (dup.items || []).find((x) => x.source !== "manual");
+      if (auto) {
+        showConfirm("要新建吗？",
+          `黑话库已有同名条目「${name}」：\n${(auto.meaning || "").slice(0, 60)}…\n\n继续会在「手动」里新建一条，不会覆盖黑话库那条。`,
+          "仍要新建", async () => {
+            await submitAdd(name, meaning, keywords, scope);
+          });
+        button.disabled = false;
+        return;
+      }
+      await submitAdd(name, meaning, keywords, scope);
+    }
+  } catch (error) {
+    $("editHint").textContent = error.message;
+    toast(error.message, "bad");
+    button.disabled = false;
+  }
 });
-load();
+
+async function submitAdd(name, meaning, keywords, scope) {
+  try {
+    const data = await req("add", { name, content: name, meaning, keywords, scope });
+    toast(data.message || "已录入", "ok");
+    closeMask($("editMask"));
+    state.editing = null;
+    await refresh();
+  } catch (error) {
+    $("editHint").textContent = error.message;
+    toast(error.message, "bad");
+  } finally {
+    updateCounter();
+  }
+}
+
+/* ---------- 批量 ---------- */
+
+$("pickAll").addEventListener("change", () => {
+  const on = $("pickAll").checked;
+  state.selected.clear();
+  document.querySelectorAll("#list .entry").forEach((row) => {
+    const box = row.querySelector(".entry-pick");
+    if (!box) return;
+    box.checked = on;
+    row.classList.toggle("picked", on);
+    if (on) state.selected.add(row.dataset.key);
+  });
+  syncBulk();
+});
+
+async function bulkAction(action) {
+  const items = Array.from(state.selected).map((key) => {
+    const item = state.items.get(key);
+    return item ? { table: item.table, name: item.content, scope: item.scope || "" } : null;
+  }).filter(Boolean);
+  if (!items.length) return;
+  try {
+    const data = await req("bulk", { action, items });
+    toast(data.message || "完成", "ok");
+    await refresh();
+  } catch (error) {
+    toast(error.message, "bad");
+  }
+}
+
+$("bulkApprove").addEventListener("click", () => bulkAction("approve"));
+$("bulkDelete").addEventListener("click", () => {
+  const count = state.selected.size;
+  if (!count) return;
+  showConfirm("删除所选", `确定删除选中的 ${count} 条待审吗？删了就找不回来了。`, "确认删除",
+    () => bulkAction("delete"));
+});
+
+/* ---------- 工具栏 ---------- */
+
+let searchTimer;
+$("search").addEventListener("input", (event) => {
+  clearTimeout(searchTimer);
+  const value = event.target.value.trim();
+  searchTimer = setTimeout(() => {
+    state.search = value;
+    state.page = 1;
+    loadList().catch((error) => toast(error.message, "bad"));
+  }, 260);
+});
+
+$("sort").addEventListener("change", (event) => {
+  state.sort = event.target.value === "count" ? "count" : "recent";
+  state.page = 1;
+  loadList().catch((error) => toast(error.message, "bad"));
+});
+
+$("learnBtn").addEventListener("click", async () => {
+  const button = $("learnBtn");
+  const label = button.textContent;
+  button.disabled = true;
+  button.textContent = "学习中…";
+  try {
+    const data = await req("learn", {});
+    toast(data.message || `新增 ${data.added} 条`, data.added ? "ok" : "");
+    await refresh();
+  } catch (error) {
+    toast(error.message, "bad");
+  } finally {
+    button.disabled = false;
+    button.textContent = label;
+  }
+});
+
+$("syncBtn").addEventListener("click", async () => {
+  const button = $("syncBtn");
+  button.disabled = true;
+  button.textContent = "同步中…";
+  try {
+    const data = await req("wiki/sync", {});
+    toast(data.message || "同步完成", "ok");
+    await refresh();
+  } catch (error) {
+    toast(error.message, "bad");
+  } finally {
+    button.disabled = false;
+    button.textContent = "同步梗库";
+  }
+});
+
+/* ---------- 主题 / 快捷键 ---------- */
+
+$("theme").addEventListener("click", () => {
+  const html = document.documentElement;
+  const next = html.getAttribute("data-theme") === "dark" ? "light" : "dark";
+  html.setAttribute("data-theme", next);
+  try { localStorage.setItem("qqbotlite-theme", next); } catch (error) {}
+});
+
+function isTyping(node) {
+  if (!node) return false;
+  const tag = node.tagName;
+  return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || node.isContentEditable;
+}
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "/" && !event.ctrlKey && !event.metaKey && !event.altKey) {
+    if (isTyping(event.target) || document.querySelector(".overlay:not([hidden])")) return;
+    event.preventDefault();
+    $("search").focus();
+  }
+  if (event.key === "Escape") {
+    document.querySelectorAll(".overlay:not([hidden])").forEach(closeMask);
+  }
+});
+
+/* ---------- 启动 ---------- */
+
+async function boot() {
+  const params = new URLSearchParams(location.search);
+  const wantBucket = params.get("bucket");
+  if (wantBucket) state.bucket = wantBucket;
+  if (params.has("scope")) {
+    const raw = params.get("scope") || "";
+    state.scope = raw === "__global__" ? "" : raw;
+    state.scoped = true;
+  }
+  try {
+    const info = await req("ping");
+    state.limit = info.limit || 200;
+    $("ver").textContent = "v" + (info.version || "0.0.0");
+    $("dot").className = "dot " + (info.enabled ? "on" : "off");
+    $("state-text").textContent = info.enabled
+      ? (info.auto_learn ? "自动学习中" : "学了不自动跑") : "已停止";
+    $("stat-line").textContent = `词条 ${info.rows} · 待审 ${info.pending} · 梗库 ${info.wiki}`;
+    $("diag").textContent = `手动 ${info.manual} · 自动 ${info.auto}\n词条上限 ${info.limit} 字`;
+    $("foot-state").textContent = info.wiki_synced_at
+      ? `梗库上次同步 ${fmtDate(Number(info.wiki_synced_at))}`
+      : "梗库还没同步过";
+  } catch (error) {
+    $("dot").className = "dot off";
+    $("state-text").textContent = "连接失败";
+    $("diag").textContent = error.message;
+    toast(error.message, "bad");
+  }
+  try { await loadTree(); } catch (error) { $("diag").textContent = error.message; }
+  updateCounter();
+  try { await loadList(); } catch (error) {
+    $("list").innerHTML = `<div class="entry-empty">列表读取失败：${esc(error.message)}</div>`;
+  }
+  if (params.get("new") === "1") openEditor(null);
+}
+
+boot();
 </script>
 </body>
 </html>
-
-

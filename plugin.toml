@@ -1,6 +1,6 @@
 title = "鲸语汇"
 description = "群黑话自学习：从群聊里提取、模型自审、按群隔离，命中时注入提示词。"
-version = "0.1.0"
+version = "0.2.0"
 author = "贰叔"
 panel = "/plugins/whale_lexicon"
 
@@ -67,3 +67,11 @@ label = "拒绝词"
 type = "text"
 default = ""
 help = "逗号分隔，这些词永远不会被收录"
+
+[[config]]
+key = "wiki_enable"
+label = "梗百科"
+type = "bool"
+default = true
+help = "面板里多一个只读的梗百科分类；不参与注入，纯粹给你查词用"
+

@@ -205,6 +205,11 @@ class JargonStore:
         CREATE INDEX IF NOT EXISTS idx_wiki_title ON wiki(title);
         CREATE INDEX IF NOT EXISTS idx_wiki_updated ON wiki(updated_at);
         CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT NOT NULL);
+        CREATE TABLE IF NOT EXISTS groups (
+            scope TEXT PRIMARY KEY,
+            name TEXT NOT NULL DEFAULT '',
+            updated_at REAL NOT NULL
+        );
         CREATE TABLE IF NOT EXISTS buffer (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             umo TEXT NOT NULL,
@@ -401,6 +406,27 @@ class JargonStore:
         with self._lock:
             self.conn.execute("DELETE FROM buffer WHERE umo = ?", (umo,))
             self.conn.commit()
+
+    # ---------- 群名（面板侧栏用） ----------
+
+    def note_scope(self, scope: str, name: str):
+        """记下「会话 → 群名」，面板侧栏才能显示群名而不是一串群号。"""
+        name = (name or "").strip()[:40]
+        if not scope or not name:
+            return
+        with self._lock:
+            self.conn.execute(
+                """INSERT INTO groups(scope, name, updated_at) VALUES(?,?,?)
+                   ON CONFLICT(scope) DO UPDATE SET
+                     name = excluded.name, updated_at = excluded.updated_at
+                   WHERE excluded.name <> groups.name""",
+                (scope, name, time.time()))
+            self.conn.commit()
+
+    def scope_names(self) -> dict[str, str]:
+        with self._lock:
+            rows = self.conn.execute("SELECT scope, name FROM groups").fetchall()
+            return {r["scope"]: r["name"] for r in rows if r["name"]}
 
     # ---------- 梗库 ----------
 
