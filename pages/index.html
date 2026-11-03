@@ -14,6 +14,7 @@
       var prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
       var theme = query === "dark" || query === "light" ? query : saved || (prefersDark ? "dark" : "light");
       document.documentElement.setAttribute("data-theme", theme);
+      document.documentElement.classList.toggle("dark", theme === "dark");
     } catch (error) {}
   })();
 </script>
@@ -40,20 +41,6 @@
 
 /* ---------- 左栏 ---------- */
 .split-side { padding: 16px 14px; gap: 12px; position: sticky; top: 24px; }
-.side-title {
-  margin: 2px 4px 4px;
-  font-size: 15px;
-  font-weight: 650;
-  line-height: 1.3;
-}
-.side-title small {
-  display: block;
-  margin-top: 2px;
-  font-family: var(--mono);
-  font-size: 11px;
-  font-weight: 400;
-  color: var(--muted-foreground);
-}
 
 .nav-list { display: grid; gap: 4px; }
 .nav-item {
@@ -217,20 +204,8 @@
   overflow: hidden;
 }
 .entry-ops { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
-.entry-ops .btn {
-  height: 28px;
-  padding: 0 2px;
-  font-size: 11.5px;
-  border-radius: 8px;
-  box-shadow: none;
-  white-space: nowrap;
-}
-.entry-ops .btn.on {
-  background: color-mix(in oklab, var(--success) 14%, var(--card));
-  border-color: color-mix(in oklab, var(--success) 38%, var(--border));
-  color: color-mix(in oklab, var(--success) 55%, var(--foreground));
-}
-.entry-ops .btn.armed { background: var(--destructive); border-color: transparent; color: #fff; }
+/* 外观（变体色、圆角、阴影）全交给 Basecoat 的 .btn，这里只管塞进窄格子 */
+.entry-ops .btn { padding-inline: 2px; font-size: 11.5px; white-space: nowrap; }
 .entry.is-wiki .entry-ops .btn { grid-column: 1 / -1; }
 
 .empty { padding: 56px 20px; border: 1px dashed var(--border); border-radius: var(--radius); color: var(--muted-foreground); font-size: 13px; text-align: center; }
@@ -294,16 +269,24 @@
 </head>
 <body>
 <div class="page">
+  <header class="head">
+    <div class="brand">
+      <span class="brand-name">鲸语汇</span>
+      <span class="brand-ver">whale_lexicon</span>
+    </div>
+    <div class="head-right">
+      <button class="icon-btn" id="theme" type="button" aria-label="切换主题">◐</button>
+    </div>
+  </header>
+
   <div class="split-layout">
 
     <aside class="split-side">
-      <h1 class="side-title">鲸语汇<small>whale_lexicon</small></h1>
       <div class="nav-list" id="nav"></div>
       <div class="side-foot">
         <div class="side-diag" id="diag">读取中…</div>
         <div class="side-tools">
           <button class="side-link" id="settingsBtn" type="button">设置</button>
-          <button class="icon-btn" id="theme" type="button" aria-label="切换主题">◐</button>
         </div>
       </div>
     </aside>
@@ -671,7 +654,7 @@ function entryHTML(item) {
       <p class="entry-meta">${meta}</p>
     </div>
     <div class="entry-ops">
-      <button class="btn" data-size="sm" data-variant="${pending ? "default" : "outline"}" type="button" data-act="approve">${pending ? "审核" : "驳回"}</button>
+      <button class="btn" data-size="sm"${pending ? "" : ` data-variant="outline"`} type="button" data-act="approve">${pending ? "审核" : "驳回"}</button>
       <button class="btn" data-variant="outline" data-size="sm" type="button" data-act="edit">修改</button>
       <button class="btn" data-variant="destructive" data-size="sm" type="button" data-act="del">删除</button>
     </div>
@@ -1167,6 +1150,7 @@ $("theme").addEventListener("click", () => {
   const html = document.documentElement;
   const next = html.getAttribute("data-theme") === "dark" ? "light" : "dark";
   html.setAttribute("data-theme", next);
+  html.classList.toggle("dark", next === "dark");
   try { localStorage.setItem("qqbotlite-theme", next); } catch (error) {}
 });
 
