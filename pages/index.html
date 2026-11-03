@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>鲸语汇</title>
+<style>
+:root{
+  --bg:#f8fafc; --card:#fff; --line:#e5e7eb; --text:#1f2937; --muted:#6b7280;
+  --primary:#0ea5e9; --primary-fg:#fff; --danger:#ef4444; --ok:#10b981;
+}
+@media (prefers-color-scheme: dark){
+  :root{ --bg:#101418; --card:#181d24; --line:#252b34; --text:#e5e8ed; --muted:#8b929e; --primary:#38bdf8; --primary-fg:#062430; }
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.6 "Segoe UI",system-ui,-apple-system,"Microsoft YaHei",sans-serif}
+.wrap{max-width:900px;margin:0 auto;padding:28px 20px 60px}
+header{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:18px}
+h1{font-size:20px;margin:0}
+.sub{color:var(--muted);font-size:12.5px;margin:2px 0 0}
+.pills{display:flex;gap:8px;flex-wrap:wrap}
+.pill{background:var(--card);border:1px solid var(--line);border-radius:999px;padding:4px 12px;font-size:12px;color:var(--muted)}
+.pill b{color:var(--text);font-family:ui-monospace,Consolas,monospace;font-size:13px}
+.btn{font:inherit;font-size:13px;height:32px;padding:0 14px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--text);cursor:pointer;transition:border-color .15s,background .15s}
+.btn:hover{border-color:var(--primary)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn.primary{background:var(--primary);border-color:var(--primary);color:var(--primary-fg);font-weight:600}
+.btn.ghost{background:transparent}
+.toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+.tabs{display:flex;gap:4px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:4px}
+.tab{border:0;background:transparent;color:var(--muted);font:inherit;font-size:13px;padding:6px 14px;border-radius:7px;cursor:pointer}
+.tab.on{background:var(--primary);color:var(--primary-fg);font-weight:600}
+input[type=search]{flex:1;min-width:180px;height:34px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--text);padding:0 12px;font:inherit}
+.list{display:grid;gap:10px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;display:flex;gap:14px;align-items:flex-start;justify-content:space-between}
+.name{font-weight:600}
+.meaning{color:var(--muted);font-size:13px;margin-top:2px}
+.meta{color:var(--muted);font-size:11.5px;margin-top:6px;font-family:ui-monospace,Consolas,monospace}
+.actions{display:flex;gap:6px;flex:none}
+.empty{border:1px dashed var(--line);border-radius:12px;padding:28px;text-align:center;color:var(--muted)}
+.toast{position:fixed;left:50%;bottom:24px;transform:translate(-50%,10px);background:var(--card);border:1px solid var(--line);border-radius:999px;padding:9px 18px;opacity:0;pointer-events:none;transition:.18s;font-size:13px}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+.toast.bad{border-color:var(--danger);color:var(--danger)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>鲸语汇</h1>
+      <p class="sub">群黑话自学习：提取 → 自审 → 待审 → 注入</p>
+    </div>
+    <div class="pills" id="pills"></div>
+  </header>
+
+  <div class="toolbar">
+    <div class="tabs">
+      <button class="tab on" data-bucket="pending">待审</button>
+      <button class="tab" data-bucket="auto">自动收录</button>
+      <button class="tab" data-bucket="manual">手动录入</button>
+    </div>
+    <input type="search" id="search" placeholder="搜名字或释义">
+    <button class="btn primary" id="learn">学一批</button>
+  </div>
+
+  <div class="list" id="list"></div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const state = {
+  bucket: new URLSearchParams(location.search).get("bucket") || "pending",
+  search: "",
+};
+
+function toast(message, bad){
+  const node = document.getElementById("toast");
+  node.textContent = message;
+  node.className = "toast show" + (bad ? " bad" : "");
+  clearTimeout(toast.timer);
+  toast.timer = setTimeout(() => { node.className = "toast"; }, 2400);
+}
+
+async function api(path, body){
+  const res = await fetch("./" + path, body ? {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+  } : {});
+  return await res.json();
+}
+
+function renderPills(stats){
+  const data = stats || {};
+  const items = [
+    ["总词条", data.total || 0], ["手动", data.manual || 0],
+    ["自动", data.auto || 0], ["待审", data.pending || 0],
+  ];
+  document.getElementById("pills").innerHTML = items
+    .map(([k, v]) => `<span class="pill">${k} <b>${v}</b></span>`).join("");
+}
+
+function esc(text){
+  return String(text || "").replace(/[&<>"]/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[ch]));
+}
+
+function row(item){
+  const name = item.content || item.name || "";
+  const pending = state.bucket === "pending";
+  const actions = pending
+    ? `<button class="btn primary" data-act="approve">通过</button><button class="btn" data-act="delete">丢弃</button>`
+    : `<button class="btn" data-act="delete">删除</button>`;
+  const meta = [item.source, item.scope || "全局", `${item.count || 1} 次`].filter(Boolean).join(" · ");
+  return `<div class="card" data-name="${esc(name)}" data-scope="${esc(item.scope || "")}"
+               data-table="${esc(item.table || "")}">
+    <div>
+      <div class="name">${esc(name)}</div>
+      <div class="meaning">${esc(item.meaning)}</div>
+      <div class="meta">${esc(meta)}</div>
+    </div>
+    <div class="actions">${actions}</div>
+  </div>`;
+}
+
+async function load(){
+  const params = new URLSearchParams({ bucket: state.bucket, search: state.search, size: "100" });
+  const data = await api("list?" + params.toString());
+  if (!data.ok){ document.getElementById("list").innerHTML = `<div class="empty">${esc(data.message || "读取失败")}</div>`; return; }
+  renderPills(data.stats);
+  const items = data.items || [];
+  document.getElementById("list").innerHTML = items.length
+    ? items.map(row).join("")
+    : `<div class="empty">${state.bucket === "pending" ? "待审池是空的" : "还没有词条"}</div>`;
+}
+
+document.getElementById("list").addEventListener("click", async (event) => {
+  const button = event.target.closest("button[data-act]");
+  if (!button) return;
+  const card = button.closest(".card");
+  const payload = { name: card.dataset.name, scope: card.dataset.scope };
+  button.disabled = true;
+  try {
+    if (button.dataset.act === "approve") {
+      const data = await api("approve", payload);
+      toast(data.ok ? data.message || "已通过" : data.message || "失败", !data.ok);
+    } else {
+      payload.table = card.dataset.table;
+      const data = await api("delete", payload);
+      toast(data.ok ? data.message || "已删除" : data.message || "失败", !data.ok);
+    }
+    await load();
+  } finally {
+    button.disabled = false;
+  }
+});
+
+document.querySelectorAll(".tab").forEach(tab => {
+  tab.addEventListener("click", () => {
+    document.querySelectorAll(".tab").forEach(t => t.classList.toggle("on", t === tab));
+    state.bucket = tab.dataset.bucket;
+    load();
+  });
+});
+
+let typing;
+document.getElementById("search").addEventListener("input", (event) => {
+  state.search = event.target.value.trim();
+  clearTimeout(typing);
+  typing = setTimeout(load, 250);
+});
+
+document.getElementById("learn").addEventListener("click", async (event) => {
+  const button = event.currentTarget;
+  button.disabled = true;
+  button.textContent = "学习中…";
+  try {
+    const data = await api("learn", {});
+    toast(data.ok ? `新增 ${data.added} 条待审` : (data.message || "失败"), !data.ok);
+    await load();
+  } finally {
+    button.disabled = false;
+    button.textContent = "学一批";
+  }
+});
+
+document.querySelectorAll(".tab").forEach(tab => {
+  tab.classList.toggle("on", tab.dataset.bucket === state.bucket);
+});
+load();
+</script>
+</body>
+</html>
+
+

@@ -49,18 +49,57 @@ async def data() -> JSONResponse:
 
 
 @router.get("/list")
-async def list_entries(bucket: str = "pending", scope: str = "", search: str = "") -> JSONResponse:
+async def list_entries(
+    bucket: str = "pending", search: str = "", scope: str = "", page: int = 1, size: int = 50
+) -> JSONResponse:
     if _SERVICE is None:
         return JSONResponse({"ok": False, "message": "插件未就绪"})
-    items = _SERVICE.list_entries(bucket, search=search, scope=scope)
-    return JSONResponse({"ok": True, "items": items})
+    total, items = _SERVICE.list_entries(bucket, search=search, scope=scope, page=page, size=size)
+    return JSONResponse(
+        {"ok": True, "total": total, "page": page, "size": size, "items": items, "stats": _SERVICE.stats()}
+    )
 
 
 @router.get("/tree")
 async def tree() -> JSONResponse:
     if _SERVICE is None:
         return JSONResponse({"ok": False, "message": "插件未就绪"})
-    return JSONResponse({"ok": True, "counts": _SERVICE.tree_counts(), "scopes": _SERVICE.pending_scopes()})
+    return JSONResponse(
+        {"ok": True, "counts": _SERVICE.tree_counts(), "scopes": _SERVICE.pending_scopes(), "stats": _SERVICE.stats()}
+    )
+
+
+@router.post("/add")
+async def add_entry(body: dict) -> JSONResponse:
+    if _SERVICE is None:
+        return JSONResponse({"ok": False, "message": "插件未就绪"})
+    name = str(body.get("name") or "").strip()
+    meaning = str(body.get("meaning") or "").strip()
+    if not name or not meaning:
+        return JSONResponse({"ok": False, "message": "名字和释义都要填"}, status_code=400)
+    try:
+        _SERVICE.add_manual(name, meaning, scope=str(body.get("scope") or ""), aliases=str(body.get("aliases") or ""))
+    except Exception as exc:  # noqa: BLE001
+        return JSONResponse({"ok": False, "message": str(exc)}, status_code=400)
+    return JSONResponse({"ok": True, "message": f"已收录「{name}」", "stats": _SERVICE.stats()})
+
+
+@router.post("/delete")
+async def delete_entry(body: dict) -> JSONResponse:
+    if _SERVICE is None:
+        return JSONResponse({"ok": False, "message": "插件未就绪"})
+    name = str(body.get("name") or "").strip()
+    scope = str(body.get("scope") or "")
+    table = str(body.get("table") or "")
+    candidates = [table] if table else ["auto", "manual", "auto_pending", "manual_pending"]
+    for candidate in candidates:
+        try:
+            _SERVICE.delete(candidate, name, scope)
+            return JSONResponse({"ok": True, "message": f"已删除「{name}」", "stats": _SERVICE.stats()})
+        except Exception:  # noqa: BLE001 - 表里没有就试下一张
+            continue
+    return JSONResponse({"ok": False, "message": f"没找到「{name}」"}, status_code=404)
+
 
 
 @router.post("/approve")
