@@ -17,7 +17,9 @@
     } catch (error) {}
   })();
 </script>
-<link rel="stylesheet" href="/static/legacy.css">
+<link rel="stylesheet" href="/static/basecoat.css">
+<link rel="stylesheet" href="/static/style.css">
+<link rel="stylesheet" href="/static/theme.css">
 <style>
 /* 布局照 astrbot_plugin_slang 的 pages/yh/index.html：左边一张卡、右边一张卡。
    配色和控件走 /static/style.css 的令牌，跟主面板一致。 */
@@ -175,9 +177,6 @@
 .bulkbar input[type="checkbox"] { width: 14px; height: 14px; margin: 0; accent-color: var(--primary); }
 .bulkbar .spacer { flex: 1; }
 .bulkbar .btn { height: 28px; padding: 0 12px; font-size: 12.5px; }
-.btn-danger { color: var(--destructive); border-color: color-mix(in oklab, var(--destructive) 32%, var(--border)); }
-.btn-danger:hover { border-color: var(--destructive); background: color-mix(in oklab, var(--destructive) 8%, var(--card)); }
-.btn-danger:disabled { color: var(--muted-foreground); border-color: var(--border); background: var(--card); }
 
 /* ---------- 词条 ---------- */
 .entries { display: grid; gap: 8px; }
@@ -246,36 +245,14 @@
 .label-row { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
 .counter { font-family: var(--mono); font-size: 10.5px; color: var(--muted-foreground); }
 .counter.over { color: var(--destructive); font-weight: 600; }
-textarea.ctl {
-  width: 100%;
-  min-height: 92px;
-  font: inherit;
-  font-size: 13px;
-  line-height: 1.6;
-  color: var(--foreground);
-  background: var(--card);
-  border: 1px solid var(--input);
-  border-radius: var(--radius-control);
-  padding: 8px 11px;
-  resize: vertical;
-}
-textarea.ctl:focus { outline: none; border-color: var(--ring); box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 22%, transparent); }
-.dialog-foot .btn { box-shadow: none; }
 .confirm-text { margin: 0; font-size: 13px; line-height: 1.7; color: var(--foreground); white-space: pre-wrap; }
 
 /* 录入/修改弹窗：作用域下面不要那条分割线 */
-#editMask .dialog-foot { border-top: 0; }
+#editMask .dialog-panel > footer { border-top: 0; }
 
 /* 设置弹窗 */
-.settings-dialog {
-  width: min(720px, 100%);
-  display: flex;
-  flex-direction: column;
-  max-height: 86vh;
-  overflow: hidden;
-}
-.settings-dialog .dialog-body { flex: 1; min-height: 0; overflow: auto; }
-.settings-dialog .dialog-foot { position: static; }
+.settings-dialog { width: min(720px, 100%); }
+.settings-dialog .set-group { padding: 0; }
 .set-group { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px 18px; }
 .set-group + .set-group { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border); }
 .set-title {
@@ -290,7 +267,7 @@ textarea.ctl:focus { outline: none; border-color: var(--ring); box-shadow: 0 0 0
 .set-field > label { font-size: 12.5px; font-weight: 500; }
 .set-field .hint { margin: 0; }
 .set-row { display: flex; align-items: center; gap: 10px; min-height: 34px; }
-#settingsMask .dialog-foot { align-items: center; }
+#settingsMask .dialog-panel > footer { align-items: center; }
 #settingsHint { margin-right: auto; font-size: 12px; color: var(--destructive); }
 
 @media (max-width: 900px) {
@@ -342,7 +319,7 @@ textarea.ctl:focus { outline: none; border-color: var(--ring); box-shadow: 0 0 0
             <option value="count">次数优先</option>
           </select>
           <input type="text" id="search" class="ctl-search" placeholder="搜索词条或含义…（/ 聚焦）" autocomplete="off">
-          <button class="btn btn-primary" type="button" id="addBtn">+ 手动录入</button>
+          <button class="btn" type="button" id="addBtn">+ 手动录入</button>
         </div>
       </div>
 
@@ -350,8 +327,8 @@ textarea.ctl:focus { outline: none; border-color: var(--ring); box-shadow: 0 0 0
         <label><input type="checkbox" id="pickAll"> 全选本页</label>
         <span id="pickInfo">已选 0 条</span>
         <span class="spacer"></span>
-        <button class="btn btn-sm" type="button" id="bulkApprove" disabled>通过所选</button>
-        <button class="btn btn-sm btn-danger" type="button" id="bulkDelete" disabled>删除所选</button>
+        <button class="btn" data-variant="outline" data-size="sm" type="button" id="bulkApprove" disabled>通过所选</button>
+        <button class="btn" data-variant="destructive" data-size="sm" type="button" id="bulkDelete" disabled>删除所选</button>
       </div>
 
       <div class="entries" id="list"></div>
@@ -361,77 +338,83 @@ textarea.ctl:focus { outline: none; border-color: var(--ring); box-shadow: 0 0 0
 </div>
 
 <!-- 录入 / 修改 -->
-<div class="overlay" id="editMask" hidden>
-  <div class="dialog">
-    <div class="dialog-head">
-      <h2 id="editTitle">手动录入</h2>
-      <button class="icon-btn" type="button" data-close aria-label="关闭">×</button>
-    </div>
-    <p class="dialog-sub" id="editSub">录入的词条会直接进「手动」，参与注入。</p>
-    <div class="dialog-body">
+<dialog class="dialog" id="editMask">
+  <div class="dialog-panel">
+    <header>
+      <div class="dialog-title-row">
+        <h2 id="editTitle">手动录入</h2>
+        <button class="btn" data-variant="ghost" data-size="icon" type="button" data-close aria-label="关闭">×</button>
+      </div>
+      <p id="editSub">录入的词条会直接进「手动」，参与注入。</p>
+    </header>
+    <section>
       <div class="form-field">
-        <label for="fName">词条名</label>
-        <input type="text" id="fName" maxlength="32" autocomplete="off" placeholder="例如：梁文锋">
+        <label class="label" for="fName">词条名</label>
+        <input class="input" type="text" id="fName" maxlength="32" autocomplete="off" placeholder="例如：梁文锋">
       </div>
       <div class="form-field">
-        <label for="fKeywords">关键词</label>
-        <input type="text" id="fKeywords" maxlength="300" autocomplete="off" placeholder="触发词，逗号分隔；不填就只用词条名">
+        <label class="label" for="fKeywords">关键词</label>
+        <input class="input" type="text" id="fKeywords" maxlength="300" autocomplete="off" placeholder="触发词，逗号分隔；不填就只用词条名">
       </div>
       <div class="form-field">
         <div class="label-row">
-          <label for="fMeaning">内容</label>
+          <label class="label" for="fMeaning">内容</label>
           <span class="counter" id="fCount">0/200</span>
         </div>
-        <textarea class="ctl" id="fMeaning" placeholder="注入给模型的解释，一句话就够"></textarea>
+        <textarea class="textarea" id="fMeaning" placeholder="注入给模型的解释，一句话就够"></textarea>
       </div>
       <div class="form-field">
-        <label for="fScope">作用域</label>
-        <select id="fScope"></select>
+        <label class="label" for="fScope">作用域</label>
+        <select class="select" id="fScope"></select>
       </div>
       <p class="hint" id="editHint"></p>
-    </div>
-    <div class="dialog-foot">
-      <button class="btn" type="button" data-close>取消</button>
-      <button class="btn btn-primary" type="button" id="editSave">确认</button>
-    </div>
+    </section>
+    <footer>
+      <button class="btn" data-variant="outline" type="button" data-close>取消</button>
+      <button class="btn" type="button" id="editSave">确认</button>
+    </footer>
   </div>
-</div>
+</dialog>
 
 <!-- 二次确认 -->
-<div class="overlay" id="confirmMask" hidden>
-  <div class="dialog" style="width:min(420px,100%)">
-    <div class="dialog-head">
-      <h2 id="confirmTitle">确认</h2>
-      <button class="icon-btn" type="button" data-close aria-label="关闭">×</button>
-    </div>
-    <div class="dialog-body">
+<dialog class="dialog" id="confirmMask" style="width:min(420px,100%)">
+  <div class="dialog-panel">
+    <header>
+      <div class="dialog-title-row">
+        <h2 id="confirmTitle">确认</h2>
+        <button class="btn" data-variant="ghost" data-size="icon" type="button" data-close aria-label="关闭">×</button>
+      </div>
+    </header>
+    <section>
       <p class="confirm-text" id="confirmText"></p>
-    </div>
-    <div class="dialog-foot">
-      <button class="btn" type="button" data-close>取消</button>
-      <button class="btn btn-primary" type="button" id="confirmOk">确定</button>
-    </div>
+    </section>
+    <footer>
+      <button class="btn" data-variant="outline" type="button" data-close>取消</button>
+      <button class="btn" type="button" id="confirmOk">确定</button>
+    </footer>
   </div>
-</div>
+</dialog>
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <!-- 插件设置 -->
-<div class="overlay" id="settingsMask" hidden>
-  <div class="dialog settings-dialog">
-    <div class="dialog-head">
-      <h2>设置</h2>
-      <button class="icon-btn" type="button" data-close aria-label="关闭">×</button>
-    </div>
-    <p class="dialog-sub">存到 data/plugin_data/whale_lexicon/settings.toml，改完下一轮生效。</p>
-    <div class="dialog-body" id="settingsBody"></div>
-    <div class="dialog-foot">
+<dialog class="dialog settings-dialog" id="settingsMask">
+  <div class="dialog-panel">
+    <header>
+      <div class="dialog-title-row">
+        <h2>设置</h2>
+        <button class="btn" data-variant="ghost" data-size="icon" type="button" data-close aria-label="关闭">×</button>
+      </div>
+      <p>存到 data/plugin_data/whale_lexicon/settings.toml，改完下一轮生效。</p>
+    </header>
+    <section id="settingsBody"></section>
+    <footer>
       <span id="settingsHint"></span>
-      <button class="btn" type="button" data-close>取消</button>
-      <button class="btn btn-primary" type="button" id="settingsSave">保存</button>
-    </div>
+      <button class="btn" data-variant="outline" type="button" data-close>取消</button>
+      <button class="btn" type="button" id="settingsSave">保存</button>
+    </footer>
   </div>
-</div>
+</dialog>
 
 <script>
 "use strict";
@@ -508,13 +491,11 @@ async function req(path, body) {
 /* ---------- 弹窗 ---------- */
 
 function openMask(node) {
-  node.hidden = false;
-  requestAnimationFrame(() => node.classList.add("show"));
+  if (node && typeof node.showModal === "function" && !node.open) node.showModal();
 }
 
 function closeMask(node) {
-  node.classList.remove("show");
-  setTimeout(() => { node.hidden = true; }, 160);
+  if (node && typeof node.close === "function" && node.open) node.close();
 }
 
 function showConfirm(title, text, okLabel, onOk) {
@@ -533,10 +514,11 @@ $("confirmOk").addEventListener("click", async () => {
 });
 
 document.querySelectorAll("[data-close]").forEach((node) => {
-  node.addEventListener("click", () => closeMask(node.closest(".overlay")));
+  node.addEventListener("click", () => closeMask(node.closest("dialog")));
 });
 
-document.querySelectorAll(".overlay").forEach((mask) => {
+// 点遮罩关闭：原生 dialog 下，点到 dialog 本身就说明点在了背景上
+document.querySelectorAll("dialog.dialog").forEach((mask) => {
   mask.addEventListener("click", (event) => {
     if (event.target === mask) closeMask(mask);
   });
@@ -661,7 +643,7 @@ function entryHTML(item) {
         <p class="entry-meaning${item.meaning ? "" : " empty"}" title="${esc(item.meaning)}">${esc(item.meaning) || "（没有摘要）"}</p>
         <p class="entry-meta">梗百科 · 只读${tags}</p>
       </div>
-      <div class="entry-ops"><button class="btn" type="button" disabled>只读</button></div>
+      <div class="entry-ops"><button class="btn" data-variant="outline" data-size="sm" type="button" disabled>只读</button></div>
     </article>`;
   }
 
@@ -689,9 +671,9 @@ function entryHTML(item) {
       <p class="entry-meta">${meta}</p>
     </div>
     <div class="entry-ops">
-      <button class="btn${pending ? " on" : ""}" type="button" data-act="approve">${pending ? "审核" : "驳回"}</button>
-      <button class="btn" type="button" data-act="edit">修改</button>
-      <button class="btn" type="button" data-act="del">删除</button>
+      <button class="btn" data-size="sm" data-variant="${pending ? "default" : "outline"}" type="button" data-act="approve">${pending ? "审核" : "驳回"}</button>
+      <button class="btn" data-variant="outline" data-size="sm" type="button" data-act="edit">修改</button>
+      <button class="btn" data-variant="destructive" data-size="sm" type="button" data-act="del">删除</button>
     </div>
   </article>`;
 }
@@ -701,9 +683,9 @@ function renderPager(total, page, size) {
   const pages = Math.max(1, Math.ceil(total / size));
   if (total <= size) { box.hidden = true; return; }
   box.hidden = false;
-  box.innerHTML = `<button class="btn btn-sm" type="button" data-page="${page - 1}" ${page <= 1 ? "disabled" : ""}>上一页</button>
+  box.innerHTML = `<button class="btn" data-variant="outline" data-size="sm" type="button" data-page="${page - 1}" ${page <= 1 ? "disabled" : ""}>上一页</button>
     <span>第 ${page} / ${pages} 页 · 共 ${total} 条</span>
-    <button class="btn btn-sm" type="button" data-page="${page + 1}" ${page >= pages ? "disabled" : ""}>下一页</button>`;
+    <button class="btn" data-variant="outline" data-size="sm" type="button" data-page="${page + 1}" ${page >= pages ? "disabled" : ""}>下一页</button>`;
 }
 
 $("pager").addEventListener("click", (event) => {
@@ -840,8 +822,8 @@ function armDelete(row) {
   if (!ops || ops.dataset.armed) return;
   ops.dataset.armed = "1";
   ops.dataset.backup = ops.innerHTML;
-  ops.innerHTML = `<button class="btn armed" type="button" data-act="confirm-del">确认删除</button>
-    <button class="btn" type="button" data-act="cancel">取消</button>`;
+  ops.innerHTML = `<button class="btn" data-variant="destructive" data-size="sm" type="button" data-act="confirm-del">确认删除</button>
+    <button class="btn" data-variant="outline" data-size="sm" type="button" data-act="cancel">取消</button>`;
   ops.style.gridTemplateColumns = "1fr 1fr";
 }
 
@@ -1027,23 +1009,23 @@ function settingControl(field, value) {
   let read;
   if (field.type === "bool") {
     const box = document.createElement("div");
-    box.className = "switch";
+    box.className = "switch-row";
     const input = document.createElement("input");
     input.type = "checkbox";
+    input.role = "switch";
+    input.className = "input";
     input.id = id;
     input.checked = Boolean(value);
-    const track = document.createElement("label");
-    track.className = "track";
-    track.htmlFor = id;
     const state = document.createElement("span");
     state.className = "state";
     state.textContent = input.checked ? "开" : "关";
     input.addEventListener("change", () => { state.textContent = input.checked ? "开" : "关"; });
-    box.append(input, track, state);
+    box.append(input, state);
     wrap.append(label, box);
     read = () => input.checked;
   } else if (field.type === "options" && Array.isArray(field.options) && field.options.length) {
     const select = document.createElement("select");
+    select.className = "select";
     select.id = id;
     const labels = Array.isArray(field.labels) ? field.labels : [];
     const current = value === null || value === undefined ? "" : String(value);
@@ -1067,13 +1049,14 @@ function settingControl(field, value) {
   } else if (field.multiline) {
     const area = document.createElement("textarea");
     area.id = id;
-    area.className = "ctl";
+    area.className = "textarea";
     area.rows = field.rows || 3;
     area.value = value === null || value === undefined ? "" : String(value);
     wrap.append(label, area);
     read = () => area.value;
   } else {
     const input = document.createElement("input");
+    input.className = "input";
     input.id = id;
     input.type = field.type === "number" ? "number" : "text";
     if (field.min !== undefined) input.min = field.min;
@@ -1195,12 +1178,12 @@ function isTyping(node) {
 
 document.addEventListener("keydown", (event) => {
   if (event.key === "/" && !event.ctrlKey && !event.metaKey && !event.altKey) {
-    if (isTyping(event.target) || document.querySelector(".overlay:not([hidden])")) return;
+    if (isTyping(event.target) || document.querySelector("dialog[open]")) return;
     event.preventDefault();
     $("search").focus();
   }
   if (event.key === "Escape") {
-    document.querySelectorAll(".overlay:not([hidden])").forEach(closeMask);
+    document.querySelectorAll("dialog[open]").forEach(closeMask);
   }
 });
 
