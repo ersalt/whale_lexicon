@@ -195,8 +195,11 @@ def main() -> None:
     if args.replace and not args.dry_run:
         for table in TABLES:
             store.conn.execute(f"DELETE FROM {table}")
+        if not args.no_wiki:
+            store.conn.execute("DELETE FROM wiki")
+            store.conn.execute("DELETE FROM meta WHERE k='wiki_synced_at'")
         store.conn.commit()
-        print("已清空目标词条")
+        print("已清空目标词条" + ("和梗百科" if not args.no_wiki else ""))
 
     counts = import_rows(store, rows_by_table, args.dry_run)
     print("导入词条：", {k: v for k, v in counts.items() if v})
