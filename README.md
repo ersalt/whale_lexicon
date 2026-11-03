@@ -164,6 +164,18 @@ python tools/import_from_astrbot.py \
 | POST | `learn` | 立刻学一批 |
 | POST | `wiki/sync` | 同步梗百科 |
 
+## 开发
+
+跟着主程序的规范走（`docs/plugin-spec.md`），三件事：
+
+```powershell
+python -m ruff check .          # 静态检查（E/W/F/B/I，行长 120）
+python -m pytest -q             # 11 个用例
+python -m app.pluginkit.check . # 规范自检（在 qq-bot-lite 目录下跑）
+```
+
+CI（`.github/workflows/ci.yml`）在 GitHub 上跑 3.12/3.13 × Ubuntu/Windows。
+
 ## 许可
 
 MIT，沿用原作者（贰叔）的 LICENSE。

@@ -1,5 +1,13 @@
 # 鲸语汇
 
+## 0.4.1
+
+- 补 CI：GitHub Actions 跑 3.12/3.13 × Ubuntu/Windows 的 `ruff check` + `pytest`
+- 补 `ruff.toml`（E/W/F/B/I，行长 120）和 `.editorconfig`，跟主程序同一套
+- 补 `tests/test_manifest.py`：清单字段、入口有 setup、panel 有页面、只 import app.sdk、
+  不写死绝对路径——规范里能自动查的部分都放进测试，CI 直接跑
+- 用例从 6 个加到 11 个
+
 ## 0.4.0
 
 跟着主程序的插件规范（`docs/plugin-spec.md`）收了一遍：

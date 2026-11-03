@@ -1,0 +1,14 @@
+# ruff：只开能抓 bug 的规则，风格问题不吵人（行长 120）
+line-length = 120
+target-version = "py312"
+
+[lint]
+select = ["E", "W", "F", "B", "I"]
+
+[lint.isort]
+known-first-party = ["core", "tools"]
+
+[lint.per-file-ignores]
+# 提取/自审提示词是整段字符串，行长由内容决定
+"core/miner.py" = ["E501"]
+

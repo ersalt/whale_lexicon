@@ -16,7 +16,6 @@ from core.service import SlangError, SlangService  # noqa: E402
 from core.store import JargonStore  # noqa: E402
 from tools.import_from_astrbot import map_scope  # noqa: E402
 
-
 # ---------- 作用域转换（从 AstrBot 搬数据用） ----------
 
 

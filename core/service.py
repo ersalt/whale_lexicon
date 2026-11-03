@@ -9,10 +9,10 @@ import re
 
 try:
     from .index import KeywordIndex
-    from .store import APPROVED, PENDING, JargonStore, TABLES
+    from .store import APPROVED, PENDING, TABLES, JargonStore
 except ImportError:  # 直接以脚本方式跑测试
     from .index import KeywordIndex
-    from .store import APPROVED, PENDING, JargonStore, TABLES
+    from .store import APPROVED, PENDING, TABLES, JargonStore
 
 SIDE = {
     "manual": "手动", "auto": "黑话库",

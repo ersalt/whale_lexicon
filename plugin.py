@@ -17,10 +17,9 @@ import re
 import time
 from pathlib import Path
 
+from app.sdk import Command, CommandContext, Extension, HookContext, PluginContext
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
-
-from app.sdk import Command, CommandContext, Extension, HookContext, PluginContext
 
 from .core import wiki as wiki_sync
 from .core.matcher import format_hint, format_wiki, match_wiki
@@ -40,7 +39,7 @@ class _LogProxy:
 log = _LogProxy()
 
 HERE = Path(__file__).resolve().parent
-VERSION = "0.4.0"
+VERSION = "0.4.1"
 
 router = APIRouter()
 _CONTEXT: PluginContext | None = None
@@ -868,6 +867,7 @@ async def _handle_yh(cmd: CommandContext) -> str:
 
 
 COMMANDS = [Command("yh", handler=_handle_yh, help="群语汇：/yh help", admin=True)]
+
 
 
 
