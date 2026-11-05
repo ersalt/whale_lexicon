@@ -11,7 +11,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from core.miner import is_low_value, parse_words, resolve_thinking  # noqa: E402
+from core.miner import Miner, count_mentions, is_low_value, parse_words, resolve_thinking  # noqa: E402
 from core.service import SlangError, SlangService  # noqa: E402
 from core.store import JargonStore  # noqa: E402
 from tools.import_from_astrbot import map_scope  # noqa: E402
@@ -48,9 +48,41 @@ def test_resolve_thinking_modes():
 def test_is_low_value():
     assert is_low_value("小鲸鱼", "群友 小鲸鱼 的 ID")
     assert is_low_value("小鲸鱼", "小鲸鱼 的 QQ 号")
+    # 昵称/名片也算只报身份；模型还爱加书名号和括号后缀
+    assert is_low_value("日生门人", "群友「日生门人（已老实版）」的昵称")
+    assert is_low_value("淡血", "群友「淡血（血无99周以通）」的昵称")
+    assert is_low_value("牢大", "群友 牢大（已黑化） 的群名片")
+    assert is_low_value("日生门人", "群友 日生门人（已老实版）")
+    # 外号 → 本名 的映射有信息量，不能被当成同义反复
+    assert not is_low_value("牢大", "群友 张三 的昵称")
     assert not is_low_value("石锤", "确凿的证据")
     # 带解释的不是同义反复
     assert not is_low_value("石锤", "石锤：确凿的证据")
+    # 释义里虽然出现昵称，但不是「只报身份」
+    assert not is_low_value("石锤", "群友 日生门人 说的确凿证据")
+
+
+def test_count_mentions_ignores_sender():
+    messages = [
+        {"sender": "日生门人（已老实版）", "text": "早上好"},
+        {"sender": "淡血（血无99周以通）", "text": "日生门人 你昨晚又熬夜了"},
+    ]
+    # 发送者昵称不算「群里在用这个词」，否则昵称类词条白送 2 次
+    assert count_mentions(messages, "日生门人") == 1
+    assert count_mentions(messages, "早上好") == 1
+    assert count_mentions([], "日生门人") == 0
+
+
+def test_prefilter_drops_nickname_entries():
+    miner = Miner(llm=None, settings={}, service=object())
+    items = [
+        {"name": "日生门人", "meaning": "群友「日生门人（已老实版）」的昵称",
+         "keywords": "", "evidence": ""},
+        {"name": "淡血", "meaning": "群友「淡血（血无99周以通）」的昵称",
+         "keywords": "", "evidence": ""},
+        {"name": "石锤", "meaning": "确凿的证据", "keywords": "", "evidence": ""},
+    ]
+    assert [item["name"] for item in miner._prefilter("group:1", items)] == ["石锤"]
 
 
 def test_parse_words():

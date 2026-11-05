@@ -35,7 +35,7 @@ EXTRACT_PROMPT = """你在整理一个 QQ 群的黑话表。下面是从这个�
 - name 2~12 个字，必须是原文里真实出现过的
 - 只挑群里自造、或只有这个群才懂的词；普通词、人名、@、表情不要
 - 一次性的玩笑、口误、临时造词不要收
-- 如果是群友的昵称或 ID，含义就写「群友 XXX 的 ID」，不要写「某个人的代称」
+- 如果是群友的外号，含义就写「群友 XXX 的昵称/ID」；词条本身就是这位群友的昵称（或其中一段）时不要收
 - 最多 {n} 条
 
 聊天：
@@ -81,7 +81,21 @@ VAGUE_WORDS = (
     "一种感觉",
 )
 
-_ID_WORDS = r"(?:QQ\s*)?(?:ID|id|Id|账号|号码|号)"
+# 「群友 XXX 的 X」里 X 的候选：昵称、名片也得算，不然只报身份的释义会漏过去
+_ID_WORDS = (
+    r"(?:QQ\s*)?(?:ID|id|Id|账号|号码|号|昵称|呢称|名字|网名|名片|群名片|备注)"
+)
+_QUOTES = "「」『』“”\"'《》〈〉"
+# 释义里「群友 X 的昵称」这一整句：X 允许带括号后缀（昵称里常见的「（已老实版）」）
+_IDENTITY_RE = re.compile(
+    rf"^(?:群友|群里的?)?(?P<who>.+?)(?:的)?{_ID_WORDS}(?:[（(][^）)]*[）)])?$"
+)
+
+
+def _plain_identity(text: str) -> str:
+    """去掉引号和空白，只留下比对用的字符（模型爱写「群友「X」的昵称」）。"""
+    return re.sub(r"\s+", "", (text or "").translate(
+        str.maketrans("", "", _QUOTES))).strip("。．.，,；;！!…")
 
 
 def parse_json(text: str):
@@ -117,17 +131,38 @@ def parse_words(raw) -> set[str]:
 
 
 def is_low_value(name: str, meaning: str) -> bool:
-    """「群友 XXX 的 ID」这类同义反复，没有新信息。"""
-    name = (name or "").strip()
-    text = re.sub(r"\s+", " ", (meaning or "").strip())
+    """「群友 XXX 的昵称/ID」这类同义反复，没有新信息。
+
+    判定标准：释义只是在报身份，而且报的就是词条本身（或它的一部分）。
+    像「牢大 = 群友 张三 的昵称」这种外号→本名的映射是有信息量的，不算。
+    """
+    name = _plain_identity(name)
+    text = _plain_identity(meaning)
     if not name or not text:
         return False
-    escaped = re.escape(name)
-    patterns = [
-        rf"^(?:群友\s*)?{escaped}\s*(?:[（(][^）)]*[）)])?\s*(?:的\s*)?{_ID_WORDS}$",
-        rf"^群友\s*{escaped}\s*$",
-    ]
-    return any(re.match(pattern, text) for pattern in patterns)
+    if text == f"群友{name}":
+        return True
+    match = _IDENTITY_RE.match(text)
+    if match:
+        who = match.group("who")
+        return name in who or who in name
+    # 连「的昵称」都懒得写，只剩「群友 XXX」
+    bare = re.match(r"^(?:群友|群里的?)(?P<who>.+)$", text)
+    if bare:
+        who = bare.group("who")
+        return name in who or who in name
+    return False
+
+
+def count_mentions(messages: list[dict], name: str) -> int:
+    """只数正文里出现了几次。
+
+    `sender: text` 拼起来的聊天记录不能用来数频次：群友的昵称每条消息都带，
+    昵称类词条因此白送 2 次、直接入库。
+    """
+    if not name:
+        return 0
+    return sum((m.get("text") or "").count(name) for m in messages)
 
 
 def merge_keywords(a: str, b: str) -> str:
@@ -248,12 +283,11 @@ class Miner:
         if not kept:
             return 0
 
-        chat = "\n".join(f"{m['sender']}: {m['text']}" for m in messages)[-4000:]
         verdicts = await self._review(kept)
         saved = 0
         for item in kept[: self.extract_max]:
             certain, reason = verdicts.get(item["name"], (False, "未自审"))
-            freq = chat.count(item["name"])
+            freq = count_mentions(messages, item["name"])
             if freq < 2:
                 certain, reason = False, f"仅出现 {freq} 次"
             elif certain and any(word in item["meaning"] for word in VAGUE_WORDS):
