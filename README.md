@@ -3,7 +3,7 @@
 群黑话自学习插件，移植自 AstrBot 插件 `astrbot_plugin_slang`，适配 `qq-bot-lite`。
 
 从群聊里攒消息 → 攒够一批、等机器人闲下来 → 分批调本地模型提取 → 模型自审
-→ 确定的直接进黑话库、拿不准的进待审 → 命中时注入到 system 提示词里。
+→ 确定的直接进黑话库、拿不准的进待审 → 命中时通过 `user_suffix` 注入到当前消息末尾。
 黑话没命中时，还会用梗百科兜底注一句。
 
 
@@ -192,7 +192,7 @@ python tools/import_from_astrbot.py \
 .venv\Scripts\python.exe -m app.pluginkit.check plugins/whale_lexicon
 ```
 
-主项目 CI 会一并跑两个内置插件的测试；插件不再单独维护 GitHub Actions。
+主项目 CI 会一并跑两个内置插件的测试；本仓库的 GitHub Actions 保留作独立校验。
 
 ## 许可
 

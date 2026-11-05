@@ -1,7 +1,8 @@
 title = "鲸语汇"
 description = "群黑话自学习：从群聊里提取、模型自审、按群隔离，命中时注入提示词。"
-version = "0.5.0"
+version = "0.6.0"
 author = "贰叔"
+api = 1
 panel = "/plugins/whale_lexicon"
 
 # ---------- 基础 ----------

@@ -418,7 +418,7 @@ class LexiconPlugin(Extension):
 
     async def on_start(self) -> None:
         self.reload_wiki_keys()
-        # 重启后把已经攒够的群重新排上队，不然要等新消息才动
+        # 重载后把已经攒够的群重新排上队，不然要等新消息才动
         frequency = _num("learn_frequency", 50, 5, 10000)
         try:
             for row in _STORE.buffer_scopes():
