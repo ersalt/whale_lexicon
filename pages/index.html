@@ -3,8 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="theme-color" content="#f4f7fb">
-<title>鲸语汇</title>
+<meta name="theme-color" content="#f9fcfe">
+<link rel="icon" href="data:,">
+<title>鲸语汇 · 词条</title>
 <script>
   // 主题跟主面板共用一份选择，免得一个亮一个暗
   (function () {
@@ -14,188 +15,156 @@
       var prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
       var theme = query === "dark" || query === "light" ? query : saved || (prefersDark ? "dark" : "light");
       document.documentElement.setAttribute("data-theme", theme);
+      document.documentElement.style.colorScheme = theme;
+      // Basecoat 认 .dark 类，跟着 data-theme 一起切
       document.documentElement.classList.toggle("dark", theme === "dark");
+      var meta = document.querySelector('meta[name="theme-color"]');
+      if (meta) meta.setAttribute("content", theme === "dark" ? "#0a0f1a" : "#f9fcfe");
     } catch (error) {}
   })();
 </script>
+<!-- 组件库：Basecoat（本地内置，无外部请求） -->
 <link rel="stylesheet" href="/static/basecoat.css">
-<link rel="stylesheet" href="/static/style.css">
 <link rel="stylesheet" href="/static/theme.css">
+<link rel="stylesheet" href="/static/style.css">
 <style>
-/* 布局照 astrbot_plugin_slang 的 pages/yh/index.html：左边一张卡、右边一张卡。
-   配色和控件走 /static/style.css 的令牌，跟主面板一致。 */
+/* 顶栏、页头、页签、卡片、弹窗、toast 的骨架全部来自 /static/style.css，
+   这里只写词条列表自己的部分。颜色/圆角/阴影只引用 theme.css 的令牌。 */
 
-.page { max-width: 1160px; padding: 24px 20px 72px; }
-.split-layout { grid-template-columns: 252px minmax(0, 1fr); gap: 14px; align-items: start; }
-.split-main {
-  gap: 0;
-  min-width: 0;
-  min-height: calc(100vh - 48px);
-  align-content: start;
-  padding: 16px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--card);
-  box-shadow: var(--shadow-card);
+.head-actions { min-width: 0; }
+.head-actions .input { width: 240px; flex: none; }
+.head-actions .btn { flex: none; white-space: nowrap; }
+
+/* ---------- 范围筛选（模型配置同款白卡 + 卡片 + 滑动选中框） ---------- */
+
+.scope-panel { margin: 0 0 18px; }
+.scope-panel .card-head { padding: 13px 22px 9px; }
+.scope-panel .card-pad { padding: 0 22px 13px; }
+.scope-list {
+  /* 主程序的 .entities 负责 flex/间距；卡片已经住在白卡里，不再加外层留白 */
+  padding: 0;
 }
-
-/* ---------- 左栏 ---------- */
-.split-side { padding: 16px 14px; gap: 12px; position: sticky; top: 24px; }
-
-.nav-list { display: grid; gap: 4px; }
-.nav-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  padding: 8px 12px;
-  border: 1px solid transparent;
-  border-radius: var(--radius-control);
-  background: transparent;
-  color: var(--muted-foreground);
+.scope-list .entity {
+  min-width: 220px;
   font: inherit;
-  font-size: 13.5px;
-  font-weight: 600;
-  text-align: left;
-  cursor: pointer;
-  transition: background .14s ease, color .14s ease, border-color .14s ease;
+  appearance: none;
+  -webkit-appearance: none;
 }
-.nav-item:hover { background: var(--muted); color: var(--foreground); }
-.nav-item.active { background: var(--accent); color: var(--accent-foreground); }
-.nav-caret { width: 10px; font-size: 10px; opacity: .55; flex: none; text-align: center; }
-.nav-caret.blank { visibility: hidden; }
-.nav-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.nav-count {
-  flex: none;
-  min-width: 22px;
-  height: 20px;
-  padding: 0 7px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 999px;
-  background: var(--muted);
-  color: var(--muted-foreground);
-  font-family: var(--mono);
-  font-size: 10.5px;
-  line-height: 1;
-}
-.nav-item.active .nav-count { background: color-mix(in oklab, var(--accent-foreground) 14%, transparent); color: var(--accent-foreground); }
 
-.nav-subs { display: grid; gap: 2px; padding: 2px 0 6px 10px; }
-.nav-sub {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  min-height: 40px;
-  padding: 4px 8px 4px 10px;
-  border: 0;
-  border-left: 2px solid var(--border);
-  border-radius: 0 var(--radius-control) var(--radius-control) 0;
-  background: transparent;
-  color: var(--muted-foreground);
-  font: inherit;
+/* ---------- 列表卡 ---------- */
+
+#list-card { transition: opacity var(--dur-2) var(--ease-out-quart); }
+#list-card.is-loading { opacity: .55; pointer-events: none; }
+
+.list-head {
+  gap: 16px;
+  border-bottom: 1px solid var(--hairline);
+}
+.list-meta {
   font-size: 12.5px;
-  text-align: left;
-  cursor: pointer;
-  transition: background .14s ease, color .14s ease, border-color .14s ease;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+  white-space: nowrap;
 }
-.nav-sub:hover { background: var(--muted); color: var(--foreground); }
-.nav-sub.active { background: var(--accent); border-left-color: var(--ring); color: var(--accent-foreground); }
-.nav-sub-label { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
-.nav-sub-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.3; }
-.nav-sub-id { font-family: var(--mono); font-size: 10.5px; opacity: .8; white-space: nowrap; }
-.nav-sub-count { font-family: var(--mono); font-size: 10.5px; opacity: .8; flex: none; }
-.nav-subs:empty { display: none; }
-
-.side-foot {
-  margin-top: auto;
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 8px;
-  padding-top: 6px;
-}
-.side-tools { display: flex; align-items: center; gap: 4px; flex: none; }
-.side-link {
-  border: 0;
-  background: none;
-  padding: 4px 4px;
-  color: var(--muted-foreground);
-  font: inherit;
-  font-size: 12px;
-  cursor: pointer;
-  border-radius: 6px;
-}
-.side-link:hover { color: var(--foreground); background: var(--muted); }
-.side-diag {
-  font-family: var(--mono);
-  font-size: 10.5px;
-  line-height: 1.7;
-  color: var(--muted-foreground);
-  white-space: pre-line;
-  word-break: break-word;
-}
-.side-foot .icon-btn { flex: none; }
-
-/* ---------- 右栏 ---------- */
-.toolbar { margin: 0 0 14px; align-items: flex-end; gap: 12px; }
-.toolbar h1 { font-size: 20px; }
-.toolbar h1 span { margin-left: 6px; font-size: 12px; font-weight: 400; color: var(--muted-foreground); }
-.toolbar-actions { align-items: center; flex-wrap: wrap; gap: 10px; }
-.toolbar-actions select { width: 114px; flex: none; }
-.toolbar-actions .btn { flex: none; }
-.ctl-search { width: 220px; flex: 1 1 160px; min-width: 0; }
+.list-tools { display: flex; align-items: center; gap: 8px; flex: none; }
+.list-tools .select-host { flex: none; min-width: 0; }
+.list-tools .ui-select { width: 132px; }
+.list-tools .select { width: 132px; }
 
 .bulkbar {
   display: flex;
   align-items: center;
   gap: 12px;
-  margin: 0 0 12px;
-  padding: 8px 14px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-control);
-  background: var(--card);
+  padding: 9px 22px;
+  border-bottom: 1px solid var(--hairline);
+  background: color-mix(in oklab, var(--canvas) 55%, var(--card));
+  color: var(--muted);
   font-size: 12.5px;
-  color: var(--muted-foreground);
 }
-.bulkbar label { display: flex; align-items: center; gap: 7px; cursor: pointer; }
-.bulkbar input[type="checkbox"] { width: 14px; height: 14px; margin: 0; accent-color: var(--primary); }
+.bulkbar .bulk-check {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex: none;
+  color: var(--text);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.bulkbar input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  accent-color: var(--primary);
+}
 .bulkbar .spacer { flex: 1; }
-.bulkbar .btn { height: 28px; padding: 0 12px; font-size: 12.5px; }
+.bulkbar .btn { height: 30px; padding: 0 11px; font-size: 12px; }
+.bulk-info { flex: none; font-variant-numeric: tabular-nums; white-space: nowrap; }
 
-/* ---------- 词条 ---------- */
-.entries { display: grid; gap: 8px; }
+/* ---------- 词条行 ---------- */
+
+.entries { display: block; }
+
 .entry {
   display: grid;
-  grid-template-columns: minmax(64px, 110px) minmax(0, 1fr) 172px;
-  gap: 12px;
-  align-items: center;
-  padding: 12px 14px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: color-mix(in oklab, var(--muted) 55%, var(--card));
-  box-shadow: none;
-  transition: border-color .14s ease;
+  grid-template-columns: minmax(96px, 150px) minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 16px;
+  padding: 15px 22px;
+  border-top: 1px solid var(--hairline);
+  background: transparent;
+  transition: background-color var(--dur-2) var(--ease-out-quart);
 }
-.entry:hover { border-color: color-mix(in oklab, var(--border) 55%, var(--muted-foreground)); }
-.entry.picked { border-color: var(--ring); background: color-mix(in oklab, var(--accent) 32%, var(--card)); }
-.entry.pending { grid-template-columns: 26px minmax(64px, 110px) minmax(0, 1fr) 172px; }
-.entry-pick { width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; cursor: pointer; border-radius: 5px; }
-.entry-pick:hover { background: var(--muted); }
-.entry-pick input { width: 15px; height: 15px; margin: 0; accent-color: var(--primary); cursor: pointer; }
-.entry-name { font-size: 14px; font-weight: 650; line-height: 1.4; word-break: break-word; }
+.entry:first-child { border-top: 0; }
+.entry.has-pick { grid-template-columns: 24px minmax(96px, 150px) minmax(0, 1fr) auto; }
+.entry:hover { background: color-mix(in oklab, var(--canvas) 55%, var(--card)); }
+.entry.picked { background: color-mix(in oklab, var(--primary-soft) 55%, var(--card)); }
+.entry.picked:hover { background: color-mix(in oklab, var(--primary-soft) 72%, var(--card)); }
+
+.entry-pick {
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  align-self: center;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.entry-pick:hover,
+.entry-pick:focus-within { background: var(--primary-soft); }
+.entry-pick input {
+  width: 15px;
+  height: 15px;
+  margin: 0;
+  accent-color: var(--primary);
+  cursor: pointer;
+}
+
+.entry-name {
+  min-width: 0;
+  padding-top: 1px;
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.45;
+  word-break: break-word;
+}
 .entry-body { min-width: 0; }
-.entry-meaning { margin: 0; font-size: 13px; line-height: 1.55; color: var(--foreground); word-break: break-word; }
-.entry-meaning.empty { color: var(--muted-foreground); }
+.entry-meaning {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text);
+  word-break: break-word;
+  text-wrap: pretty;
+}
+.entry-meaning.empty { color: var(--muted); }
 .entry-meta {
-  margin: 3px 0 0;
+  margin: 4px 0 0;
   font-size: 11.5px;
-  color: var(--muted-foreground);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.5;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  word-break: break-word;
+  text-wrap: pretty;
 }
 .entry.is-wiki .entry-meaning {
   display: -webkit-box;
@@ -203,156 +172,252 @@
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
-.entry-ops { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
-/* 外观（变体色、圆角、阴影）全交给 Basecoat 的 .btn，这里只管塞进窄格子 */
-.entry-ops .btn { padding-inline: 2px; font-size: 11.5px; white-space: nowrap; }
-.entry.is-wiki .entry-ops .btn { grid-column: 1 / -1; }
+.entry.is-wiki .entry-ops { align-self: center; }
 
-.empty { padding: 56px 20px; border: 1px dashed var(--border); border-radius: var(--radius); color: var(--muted-foreground); font-size: 13px; text-align: center; }
-
-.pager { display: flex; align-items: center; justify-content: center; gap: 14px; margin-top: 16px; font-size: 12.5px; color: var(--muted-foreground); }
-.pager .btn { height: 28px; padding: 0 12px; font-size: 12.5px; }
-
-/* ---------- 弹窗 ---------- */
-.dialog { width: min(520px, 100%); }
-.form-field { display: grid; gap: 6px; margin-bottom: 14px; }
-.form-field > label { font-size: 12.5px; font-weight: 500; }
-.label-row { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
-.counter { font-family: var(--mono); font-size: 10.5px; color: var(--muted-foreground); }
-.counter.over { color: var(--destructive); font-weight: 600; }
-.confirm-text { margin: 0; font-size: 13px; line-height: 1.7; color: var(--foreground); white-space: pre-wrap; }
-
-/* 录入/修改弹窗：作用域下面不要那条分割线 */
-#editMask .dialog-panel > footer { border-top: 0; }
-
-/* 设置弹窗 */
-.settings-dialog { width: min(720px, 100%); }
-.settings-dialog .set-group { padding: 0; }
-.set-group { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px 18px; }
-.set-group + .set-group { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border); }
-.set-title {
-  grid-column: 1 / -1;
-  margin: 0;
-  font-size: 11.5px;
-  font-weight: 600;
-  letter-spacing: .04em;
-  color: var(--muted-foreground);
+.entry-ops {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  align-self: center;
+  flex-wrap: wrap;
 }
-.set-field { display: grid; gap: 5px; min-width: 0; }
-.set-field > label { font-size: 12.5px; font-weight: 500; }
-.set-field .hint { margin: 0; }
-.set-row { display: flex; align-items: center; gap: 10px; min-height: 34px; }
-#settingsMask .dialog-panel > footer { align-items: center; }
-#settingsHint { margin-right: auto; font-size: 12px; color: var(--destructive); }
+.entry-ops .btn { height: 30px; padding: 0 10px; font-size: 12px; }
+.entry-ops .tag { white-space: nowrap; }
+
+.blank-card .blank-action { margin-top: 14px; }
+.blank-card .blank-action .btn { height: 32px; padding: 0 12px; font-size: 12.5px; }
+
+/* ---------- 卡脚 / 翻页 ---------- */
+
+.list-foot { justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.foot-count { font-size: 12px; font-variant-numeric: tabular-nums; color: var(--muted); }
+.pager { display: flex; align-items: center; gap: 8px; }
+.pager .btn { height: 30px; padding: 0 10px; font-size: 12px; }
+
+/* ---------- 状态 / 提示 ---------- */
+
+.conn.warn { background: var(--warning-soft); color: var(--warning-ink); }
+
+/* ---------- 设置弹窗 ---------- */
+
+.settings-modal { width: min(720px, calc(100vw - 32px)); }
+.settings-modal .dialog-grid { align-items: start; }
+.settings-modal .field-wide { grid-column: 1 / -1; }
+.settings-modal .field-head { margin-bottom: 6px; }
+#settingsHint {
+  margin-right: auto;
+  max-width: 60%;
+  font-size: 12px;
+  color: var(--danger);
+  overflow-wrap: anywhere;
+}
+#settingsHint:empty { display: none; }
+
+/* ---------- 录入 / 修改弹窗 ---------- */
+
+.editor-fields { display: grid; gap: 14px; }
+.editor-fields .field-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.editor-fields .field-head label { font-size: 12.5px; font-weight: 500; }
+.editor-fields .field-head .counter { margin-left: auto; }
+.editor-fields .key { font-size: 10.5px; }
+.editor-fields .textarea { min-height: 132px; }
+.counter {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.counter.over { color: var(--danger); font-weight: 600; }
+#editHint {
+  margin: 0 auto 0 0;
+  max-width: 60%;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--danger);
+  overflow-wrap: anywhere;
+}
+#editHint:empty { display: none; }
+
+/* ---------- 二次确认 ---------- */
+
+.confirm-modal { width: min(420px, calc(100vw - 32px)); }
+.confirm-text {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--text);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
 
 @media (max-width: 900px) {
-  .split-layout { grid-template-columns: 1fr; }
-  .split-side { position: static; }
-  .entry, .entry.pending {
-    grid-template-columns: minmax(64px, 110px) minmax(0, 1fr);
-    grid-template-areas: "name body" "ops ops";
-    row-gap: 10px;
+  .head-actions { width: 100%; }
+  .head-actions .input { width: auto; flex: 1 1 180px; }
+  .list-head { flex-wrap: wrap; }
+  .list-tools { width: 100%; }
+  .list-tools .select-host { flex: 1 1 auto; width: 100%; }
+  .list-tools .ui-select,
+  .list-tools .select { width: 100%; }
+  .entry,
+  .entry.is-wiki {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "name" "body" "ops";
+    gap: 10px 12px;
+    padding: 14px 16px;
   }
-  .entry.pending {
-    grid-template-columns: 26px minmax(64px, 110px) minmax(0, 1fr);
-    grid-template-areas: "pick name body" "ops ops ops";
+  .entry.has-pick {
+    grid-template-columns: 24px minmax(0, 1fr);
+    grid-template-areas: "pick name" "body body" "ops ops";
   }
-  .entry > .entry-pick { grid-area: pick; }
+  .entry-pick { grid-area: pick; align-self: center; }
   .entry-name { grid-area: name; }
   .entry-body { grid-area: body; }
-  .entry-ops { grid-area: ops; }
-  .toolbar { align-items: stretch; }
-  .toolbar-actions { width: 100%; }
-  .ctl-search { width: auto; }
+  .entry-ops { grid-area: ops; justify-content: flex-start; }
+}
+
+@media (max-width: 560px) {
+  .list-head, .bulkbar, .list-foot { padding-left: 16px; padding-right: 16px; }
+  .scope-panel .card-head, .scope-panel .card-pad { padding-left: 16px; padding-right: 16px; }
+  .bulkbar { flex-wrap: wrap; row-gap: 8px; }
+  .bulkbar .spacer { display: none; }
+  .bulkbar .btn { flex: none; }
+  .entry { padding: 13px 16px; }
+  .entry-ops { justify-content: stretch; }
+  .entry-ops .btn { flex: 1 1 auto; }
+  #editMask .dialog-panel > footer,
+  #settingsMask .dialog-panel > footer { flex-wrap: wrap; }
+  #settingsHint, #editHint {
+    flex: 1 1 100%;
+    max-width: 100%;
+    margin-right: 0;
+  }
 }
 </style>
 </head>
 <body>
-<div class="page">
-  <header class="head">
-    <div class="brand">
-      <span class="brand-name">鲸语汇</span>
-      <span class="brand-ver">whale_lexicon</span>
+
+<header class="topbar" id="topbar">
+  <div class="brand">鲸语汇 <span class="ver" id="brand-version">v0.6.0</span></div>
+  <span class="tb-sep"></span>
+  <span class="tb-scope">词条</span>
+  <div class="tb-right">
+    <span class="stat mono" id="stat-line"></span>
+    <span class="conn" id="status-badge" title="自检状态">
+      <i class="dot"></i>
+      <span id="status-text">读取中</span>
+    </span>
+    <div class="tb-tools">
+      <button class="tb-btn" id="settingsBtn" type="button" aria-label="设置" title="设置">⚙</button>
+      <button class="tb-btn" id="theme" type="button" aria-label="切换主题" title="切到深色">◐</button>
+      <button class="tb-btn" id="full" type="button" aria-label="全屏" title="全屏">⛶</button>
     </div>
-    <div class="head-right">
-      <button class="icon-btn" id="theme" type="button" aria-label="切换主题">◐</button>
-    </div>
-  </header>
-
-  <div class="split-layout">
-
-    <aside class="split-side">
-      <div class="nav-list" id="nav"></div>
-      <div class="side-foot">
-        <div class="side-diag" id="diag">读取中…</div>
-        <div class="side-tools">
-          <button class="side-link" id="settingsBtn" type="button">设置</button>
-        </div>
-      </div>
-    </aside>
-
-    <main class="split-main">
-      <div class="toolbar">
-        <div class="toolbar-text">
-          <h1 id="title">手动<span id="subtitle"></span></h1>
-        </div>
-        <div class="toolbar-actions">
-          <select id="sort" title="排序方式">
-            <option value="recent">最新优先</option>
-            <option value="count">次数优先</option>
-          </select>
-          <input type="text" id="search" class="ctl-search" placeholder="搜索词条或含义…（/ 聚焦）" autocomplete="off">
-          <button class="btn" type="button" id="addBtn">+ 手动录入</button>
-        </div>
-      </div>
-
-      <div class="bulkbar" id="bulkbar" hidden>
-        <label><input type="checkbox" id="pickAll"> 全选本页</label>
-        <span id="pickInfo">已选 0 条</span>
-        <span class="spacer"></span>
-        <button class="btn" data-variant="outline" data-size="sm" type="button" id="bulkApprove" disabled>通过所选</button>
-        <button class="btn" data-variant="destructive" data-size="sm" type="button" id="bulkDelete" disabled>删除所选</button>
-      </div>
-
-      <div class="entries" id="list"></div>
-      <div class="pager" id="pager" hidden></div>
-    </main>
   </div>
-</div>
+</header>
+
+<main class="page">
+  <div class="head">
+    <div class="head-text">
+      <h1 id="page-title">手动</h1>
+      <p class="sub" id="page-sub">人工维护的词条，优先自动学习的结果</p>
+    </div>
+    <div class="head-actions">
+      <input class="input" id="search" type="search" placeholder="搜索词条或含义…（/ 聚焦）" autocomplete="off" aria-label="搜索词条">
+      <button class="btn" id="addBtn" type="button">+ 手动录入</button>
+    </div>
+  </div>
+
+  <nav class="tabbar" id="tabs" aria-label="词条分类"></nav>
+
+  <section class="card scope-panel" id="scopebar" hidden>
+    <div class="card-head">
+      <h2>范围</h2>
+      <span class="aside" id="scope-meta"></span>
+    </div>
+    <div class="card-pad">
+      <div class="entities scope-list" id="scope-list" role="group" aria-label="按群筛选"></div>
+    </div>
+  </section>
+
+  <section class="card" id="list-card" role="region" aria-labelledby="page-title">
+    <div class="card-head list-head">
+      <span class="list-meta" id="list-meta">读取中…</span>
+      <div class="list-tools">
+        <div class="select-host" id="sortHost"></div>
+      </div>
+    </div>
+
+    <div class="bulkbar" id="bulkbar" hidden>
+      <label class="bulk-check"><input type="checkbox" id="pickAll"> 全选本页</label>
+      <span class="bulk-info" id="pickInfo">已选 0 条</span>
+      <span class="spacer"></span>
+      <button class="btn" data-variant="outline" data-size="sm" type="button" id="bulkApprove" disabled>通过所选</button>
+      <button class="btn" data-variant="destructive" data-size="sm" type="button" id="bulkDelete" disabled>删除所选</button>
+    </div>
+
+    <div class="entries" id="list">
+      <div class="blank-card">读取中…</div>
+    </div>
+
+    <div class="card-foot list-foot" id="list-foot" hidden>
+      <span class="foot-count" id="foot-count"></span>
+      <div class="pager" id="pager"></div>
+    </div>
+  </section>
+
+  <footer class="foot">
+    <span>数据 <code>data/plugin_data/whale_lexicon/jargon.db</code></span>
+    <span id="foot-state">未加载</span>
+  </footer>
+</main>
 
 <!-- 录入 / 修改 -->
-<dialog class="dialog" id="editMask">
+<dialog class="modal" id="editMask">
   <div class="dialog-panel">
     <header>
-      <div class="dialog-title-row">
-        <h2 id="editTitle">手动录入</h2>
-        <button class="btn" data-variant="ghost" data-size="icon" type="button" data-close aria-label="关闭">×</button>
-      </div>
+      <h2 id="editTitle">手动录入</h2>
       <p id="editSub">录入的词条会直接进「手动」，参与注入。</p>
     </header>
     <section>
-      <div class="form-field">
-        <label class="label" for="fName">词条名</label>
-        <input class="input" type="text" id="fName" maxlength="32" autocomplete="off" placeholder="例如：梁文锋">
-      </div>
-      <div class="form-field">
-        <label class="label" for="fKeywords">关键词</label>
-        <input class="input" type="text" id="fKeywords" maxlength="300" autocomplete="off" placeholder="触发词，逗号分隔；不填就只用词条名">
-      </div>
-      <div class="form-field">
-        <div class="label-row">
-          <label class="label" for="fMeaning">内容</label>
-          <span class="counter" id="fCount">0/200</span>
+      <div class="editor-fields">
+        <div class="field">
+          <div class="field-head">
+            <label for="fName">词条名</label>
+            <span class="key">name</span>
+          </div>
+          <input class="input" type="text" id="fName" maxlength="32" autocomplete="off" placeholder="例如：梁文锋" aria-describedby="fNameErr">
+          <p class="err" id="fNameErr" aria-live="polite"></p>
         </div>
-        <textarea class="textarea" id="fMeaning" placeholder="注入给模型的解释，一句话就够"></textarea>
+        <div class="field">
+          <div class="field-head">
+            <label for="fKeywords">关键词</label>
+            <span class="key">keywords</span>
+          </div>
+          <input class="input" type="text" id="fKeywords" maxlength="300" autocomplete="off" placeholder="触发词，逗号分隔；不填就只用词条名">
+        </div>
+        <div class="field">
+          <div class="field-head">
+            <label for="fMeaning">内容</label>
+            <span class="counter" id="fCount">0/200</span>
+          </div>
+          <textarea class="textarea" id="fMeaning" rows="6" placeholder="注入给模型的解释，一句话就够"></textarea>
+        </div>
+        <div class="field">
+          <div class="field-head">
+            <label for="fScope">作用域</label>
+            <span class="key">scope</span>
+          </div>
+          <div class="select-host" id="fScopeHost"></div>
+        </div>
       </div>
-      <div class="form-field">
-        <label class="label" for="fScope">作用域</label>
-        <select class="select" id="fScope"></select>
-      </div>
-      <p class="hint" id="editHint"></p>
     </section>
     <footer>
+      <p id="editHint"></p>
       <button class="btn" data-variant="outline" type="button" data-close>取消</button>
       <button class="btn" type="button" id="editSave">确认</button>
     </footer>
@@ -360,13 +425,10 @@
 </dialog>
 
 <!-- 二次确认 -->
-<dialog class="dialog" id="confirmMask" style="width:min(420px,100%)">
+<dialog class="modal confirm-modal" id="confirmMask">
   <div class="dialog-panel">
     <header>
-      <div class="dialog-title-row">
-        <h2 id="confirmTitle">确认</h2>
-        <button class="btn" data-variant="ghost" data-size="icon" type="button" data-close aria-label="关闭">×</button>
-      </div>
+      <h2 id="confirmTitle">确认</h2>
     </header>
     <section>
       <p class="confirm-text" id="confirmText"></p>
@@ -378,16 +440,11 @@
   </div>
 </dialog>
 
-<div class="toast" id="toast" role="status" aria-live="polite"></div>
-
 <!-- 插件设置 -->
-<dialog class="dialog settings-dialog" id="settingsMask">
+<dialog class="modal settings-modal" id="settingsMask">
   <div class="dialog-panel">
     <header>
-      <div class="dialog-title-row">
-        <h2>设置</h2>
-        <button class="btn" data-variant="ghost" data-size="icon" type="button" data-close aria-label="关闭">×</button>
-      </div>
+      <h2>设置</h2>
       <p>存到 data/plugin_data/whale_lexicon/settings.toml，改完下一轮生效。</p>
     </header>
     <section id="settingsBody"></section>
@@ -399,14 +456,24 @@
   </div>
 </dialog>
 
+<!-- 主程序的自绘下拉框（#llm 进阶设置「思考档位」同款） -->
+<script src="/static/ui.js"></script>
 <script>
 "use strict";
 
 const $ = (id) => document.getElementById(id);
+const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
 const LABELS = { manual: "手动", auto: "黑话库", pending: "待审", wiki: "梗百科" };
+const DESCS = {
+  manual: "人工维护的词条，优先自动学习的结果",
+  auto: "从群聊里学来的黑话，按群隔离",
+  pending: "拿不准的候选，通过后才会参与注入",
+  wiki: "梗百科兜底，只读；黑话没命中时才会用到",
+};
+const ORDER = ["manual", "auto", "pending", "wiki"];
+const PLUGIN_ID = "whale_lexicon";
 
 const state = {
-  // 顺序跟原插件一致：手动 → 黑话库 → 待审 → 梗百科，默认落在「手动」
   bucket: "manual",
   scope: "",
   scoped: false,
@@ -418,17 +485,28 @@ const state = {
   names: {},
   items: new Map(),
   selected: new Set(),
-  collapsed: new Set(),
   limit: 200,
   editing: null,
   confirmHandler: null,
+  statusDown: false,
 };
+
+let listSeq = 0;
+let searchTimer = 0;
+let pendingDuplicate = null;
+let sortPicker = null;
+let scopePicker = null;
 
 /* ---------- 基础 ---------- */
 
 function esc(value) {
   return String(value === null || value === undefined ? "" : value)
     .replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
+}
+
+function fmtNum(value) {
+  const n = Number(value) || 0;
+  return n.toLocaleString("zh-CN");
 }
 
 function fmtDate(ts) {
@@ -438,7 +516,7 @@ function fmtDate(ts) {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
 }
 
-/** group:123456 → 123456；面板上只显示号码，跟原插件一致 */
+/** group:123456 → 123456；面板上只显示号码 */
 function scopeId(scope) {
   const at = scope.lastIndexOf(":");
   return at >= 0 ? scope.slice(at + 1) : scope;
@@ -446,15 +524,110 @@ function scopeId(scope) {
 
 function scopeName(scope) {
   if (!scope) return "全局";
-  return state.names[scope] || `群 ${scopeId(scope)}`;
+  if (state.names[scope]) return state.names[scope];
+  const at = scope.lastIndexOf(":");
+  const kind = at >= 0 ? scope.slice(0, at) : "";
+  const ident = at >= 0 ? scope.slice(at + 1) : scope;
+  return kind === "private" ? `私聊 ${ident}` : `群 ${ident}`;
 }
 
-function toast(message, kind) {
-  const node = $("toast");
-  node.textContent = message;
-  node.className = "toast show" + (kind ? " " + kind : "");
-  clearTimeout(toast.timer);
-  toast.timer = setTimeout(() => { node.className = "toast"; }, 2600);
+function reducedMotion() {
+  return window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+/** 下拉框用主程序同一个 uiSelect（#llm 进阶设置「思考档位」那套）；
+    旧主程序没有 ui.js 时退回原生 select，保证面板还能用。 */
+function makeSelect(config) {
+  if (typeof uiSelect === "function") return uiSelect(config);
+  const select = document.createElement("select");
+  select.className = "select";
+  if (config.id) select.id = config.id;
+  if (config.label) select.setAttribute("aria-label", config.label);
+  for (const item of config.items || []) {
+    const option = document.createElement("option");
+    option.value = String(item.value === undefined || item.value === null ? "" : item.value);
+    option.textContent = item.label === undefined || item.label === null ? option.value : String(item.label);
+    select.append(option);
+  }
+  select.value = config.value === undefined || config.value === null ? "" : String(config.value);
+  if (typeof config.onChange === "function") {
+    select.addEventListener("change", () => config.onChange(select.value));
+  }
+  return select;
+}
+
+function toastStackFor(host) {
+  let stack = Array.from(host.children).find((node) => node.classList?.contains("toast-stack"));
+  if (!stack) {
+    stack = document.createElement("div");
+    stack.className = "toast-stack";
+    stack.setAttribute("aria-live", "polite");
+    host.append(stack);
+  }
+  return stack;
+}
+
+function syncToastStack(stack) {
+  if (!stack || stack.children.length > 0) return;
+  const dialog = stack.closest("dialog");
+  if (dialog) {
+    dialog.classList.remove("toast-open");
+    stack.remove();
+  }
+}
+
+function dismissToast(node) {
+  if (!node || !node.isConnected || node.classList.contains("is-leaving")) return;
+  const stack = node.parentElement;
+  clearTimeout(node._timer);
+  node.classList.add("is-leaving");
+  window.setTimeout(() => {
+    node.remove();
+    syncToastStack(stack);
+  }, 160);
+}
+
+function toast(message, kind = "ok") {
+  // 正在退场的弹窗不能再收通知：关掉之后它整个不可见，通知会跟着消失
+  const dialog = document.querySelector("dialog[open]:not(.is-closing)");
+  const host = dialog || document.body;
+  const stack = toastStackFor(host);
+  if (dialog) dialog.classList.add("toast-open");
+
+  const node = document.createElement("div");
+  node.className = `toast-item ${kind}`;
+  node.tabIndex = 0;
+  node.title = "点击关闭";
+  node.setAttribute("role", kind === "bad" ? "alert" : "status");
+  node.setAttribute("aria-live", kind === "bad" ? "assertive" : "polite");
+
+  const text = document.createElement("div");
+  text.className = "toast-text";
+  text.textContent = message;
+  const bar = document.createElement("span");
+  bar.className = "toast-bar";
+  bar.setAttribute("aria-hidden", "true");
+  node.append(text, bar);
+
+  node.addEventListener("click", () => dismissToast(node));
+  node.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" || event.key === " " || event.key === "Escape") {
+      event.preventDefault();
+      dismissToast(node);
+    }
+  });
+
+  const life = kind === "bad" ? 5200 : 3200;
+  bar.style.animationDuration = `${life}ms`;
+  node._timer = window.setTimeout(() => dismissToast(node), life);
+  stack.prepend(node);
+  while (stack.children.length > 3) {
+    const old = stack.lastElementChild;
+    if (old) {
+      clearTimeout(old._timer);
+      old.remove();
+    }
+  }
 }
 
 async function req(path, body) {
@@ -463,7 +636,7 @@ async function req(path, body) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   };
-  const res = await fetch("./" + path, init);
+  const res = await fetch("./" + path, { cache: "no-store", ...init });
   let data = null;
   try { data = await res.json(); } catch (error) { /* 非 JSON 时下面统一报错 */ }
   if (!data) throw new Error(`服务器返回了 ${res.status}`);
@@ -474,17 +647,49 @@ async function req(path, body) {
 /* ---------- 弹窗 ---------- */
 
 function openMask(node) {
-  if (node && typeof node.showModal === "function" && !node.open) node.showModal();
+  if (!node || typeof node.showModal !== "function" || node.open) return;
+  // 跟主面板一样：先聚焦 dialog 本身，避免 showModal 把焦点丢给「取消」并亮一圈
+  node.tabIndex = -1;
+  node.showModal();
+  node.focus();
 }
+
+/* host-gap：面板只加载 ui.js，没有主面板 plugins.js 里的 closeDialog()。
+   退场样式（.modal[open].is-closing / dialog-out / backdrop-out）由宿主 style.css 提供，
+   这里只补「等动画结束再 close」的时序；宿主把通用 closeDialog 放进 ui.js 后换掉这段。 */
+const CLOSE_MOTION_MS = 180;
 
 function closeMask(node) {
-  if (node && typeof node.close === "function" && node.open) node.close();
+  if (!node || typeof node.close !== "function" || !node.open
+      || node.classList.contains("is-closing")) return;
+  if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    node.close();
+    return;
+  }
+  // 先播退场（.is-closing 的 animation），animationend 之后再真正 close
+  node.classList.add("is-closing");
+  let done = false;
+  function finish() {
+    if (done) return;
+    done = true;
+    node.removeEventListener("animationend", onEnd);
+    node.classList.remove("is-closing");
+    node.close();
+  }
+  function onEnd(event) {
+    if (event.target === node && event.animationName === "dialog-out") finish();
+  }
+  node.addEventListener("animationend", onEnd);
+  window.setTimeout(finish, CLOSE_MOTION_MS + 150); // 动画被系统吞掉时兜底
 }
 
-function showConfirm(title, text, okLabel, onOk) {
+function showConfirm(title, text, okLabel, onOk, danger) {
   $("confirmTitle").textContent = title;
   $("confirmText").textContent = text;
-  $("confirmOk").textContent = okLabel || "确定";
+  const ok = $("confirmOk");
+  ok.textContent = okLabel || "确定";
+  if (danger) ok.dataset.variant = "destructive";
+  else delete ok.dataset.variant;
   state.confirmHandler = onOk;
   openMask($("confirmMask"));
 }
@@ -493,127 +698,337 @@ $("confirmOk").addEventListener("click", async () => {
   const handler = state.confirmHandler;
   state.confirmHandler = null;
   closeMask($("confirmMask"));
-  if (handler) await handler();
+  if (!handler) return;
+  try { await handler(); } catch (error) { toast(error.message, "bad"); }
 });
 
-document.querySelectorAll("[data-close]").forEach((node) => {
+$("confirmMask").addEventListener("close", () => { state.confirmHandler = null; });
+
+$$("[data-close]").forEach((node) => {
   node.addEventListener("click", () => closeMask(node.closest("dialog")));
 });
 
 // 点遮罩关闭：原生 dialog 下，点到 dialog 本身就说明点在了背景上
-document.querySelectorAll("dialog.dialog").forEach((mask) => {
+$$("dialog.modal").forEach((mask) => {
+  // Esc：拦下原生关闭，走同一条退场路径
+  mask.addEventListener("cancel", (event) => {
+    event.preventDefault();
+    closeMask(mask);
+  });
   mask.addEventListener("click", (event) => {
     if (event.target === mask) closeMask(mask);
   });
 });
 
-/* ---------- 侧栏 ---------- */
+/* ---------- 页签 ---------- */
 
-function renderNav() {
-  const tree = state.tree;
-  if (!tree) return;
-  $("nav").innerHTML = tree.buckets.map((bucket) => {
-    const active = state.bucket === bucket.key && !state.scoped ? " active" : "";
-    const hasSubs = bucket.subs && bucket.subs.length;
-    const collapsed = state.collapsed.has(bucket.key);
-    const caret = hasSubs
-      ? `<span class="nav-caret" data-caret="${esc(bucket.key)}">${collapsed ? "▸" : "▾"}</span>`
-      : `<span class="nav-caret blank"></span>`;
-    let html = `<button class="nav-item${active}" type="button" data-bucket="${esc(bucket.key)}">
-      ${caret}
-      <span class="nav-label">${esc(bucket.label)}</span>
-      <span class="nav-count">${bucket.count}</span>
-    </button>`;
-    if (hasSubs && !collapsed) {
-      html += `<div class="nav-subs">` + bucket.subs.map((sub) => {
-        const on = state.bucket === bucket.key && state.scoped && state.scope === sub.scope ? " active" : "";
-        const name = sub.scope ? (sub.name || "未命名群") : "全局";
-        const id = sub.scope ? `[${esc(scopeId(sub.scope))}]` : "所有群通用";
-        return `<button class="nav-sub${on}" type="button"
-          data-bucket="${esc(bucket.key)}" data-scope="${esc(sub.scope)}">
-          <span class="nav-sub-label">
-            <span class="nav-sub-name">${esc(name)}</span>
-            <span class="nav-sub-id">${esc(id)}</span>
-          </span>
-          <span class="nav-sub-count">${sub.count}</span>
-        </button>`;
-      }).join("") + `</div>`;
-    }
-    return html;
-  }).join("");
+function tabId(key) {
+  return `tab-${key}`;
 }
 
-$("nav").addEventListener("click", (event) => {
-  const caret = event.target.closest("[data-caret]");
-  if (caret) {
-    const key = caret.dataset.caret;
-    if (state.collapsed.has(key)) state.collapsed.delete(key);
-    else state.collapsed.add(key);
-    renderNav();
-    return;
+function renderTabs() {
+  const tabs = $("tabs");
+  if (!state.tree) return;
+  const frag = document.createDocumentFragment();
+  for (const bucket of state.tree.buckets) {
+    const tab = document.createElement("button");
+    tab.type = "button";
+    tab.className = "tabbtn";
+    tab.id = tabId(bucket.key);
+    tab.dataset.bucket = bucket.key;
+    tab.setAttribute("aria-controls", "list-card");
+    tab.setAttribute("aria-current", state.bucket === bucket.key ? "page" : "false");
+    tab.tabIndex = state.bucket === bucket.key ? 0 : -1;
+    const label = document.createElement("span");
+    label.textContent = bucket.label;
+    const count = document.createElement("span");
+    count.className = "count";
+    count.textContent = fmtNum(bucket.count);
+    tab.append(label, count);
+    frag.append(tab);
   }
-  const sub = event.target.closest(".nav-sub");
-  if (sub) {
-    state.bucket = sub.dataset.bucket;
-    state.scope = sub.dataset.scope || "";
-    state.scoped = true;
-    state.page = 1;
-    state.search = "";
-    $("search").value = "";
-    renderNav();
-    loadList();
-    return;
+  const ink = document.createElement("span");
+  ink.className = "tab-ink";
+  ink.id = "tab-ink";
+  ink.setAttribute("aria-hidden", "true");
+  frag.append(ink);
+  tabs.replaceChildren(frag);
+  requestAnimationFrame(() => moveInk(false));
+}
+
+function syncTabs() {
+  for (const tab of $$("#tabs .tabbtn")) {
+    const on = tab.dataset.bucket === state.bucket;
+    tab.setAttribute("aria-current", on ? "page" : "false");
+    tab.tabIndex = on ? 0 : -1;
   }
-  const item = event.target.closest(".nav-item");
-  if (!item) return;
-  const key = item.dataset.bucket;
-  if (state.bucket === key && !state.scoped) {
-    const bucket = state.tree && state.tree.buckets.find((b) => b.key === key);
-    if (bucket && bucket.subs && bucket.subs.length) {
-      if (state.collapsed.has(key)) state.collapsed.delete(key);
-      else state.collapsed.add(key);
-      renderNav();
-      return;
-    }
+}
+
+function moveInk(animate) {
+  const ink = $("tab-ink");
+  const active = document.querySelector('#tabs .tabbtn[aria-current="page"]');
+  if (!ink || !active) return;
+  const left = active.offsetLeft;
+  const width = active.offsetWidth;
+  if (!animate) ink.style.transition = "none";
+  ink.style.width = `${width}px`;
+  ink.style.transform = `translateX(${left}px)`;
+  if (!animate) {
+    void ink.offsetWidth;
+    ink.style.transition = "";
   }
+}
+
+function animateCard(direction) {
+  if (reducedMotion()) return;
+  const card = $("list-card");
+  card.animate(
+    [
+      { opacity: .4, transform: `translateX(${direction * 8}px)` },
+      { opacity: 1, transform: "none" },
+    ],
+    { duration: 220, easing: "cubic-bezier(.16, 1, .3, 1)" },
+  );
+}
+
+function syncListTools() {
+  const onWiki = state.bucket === "wiki";
+  const host = $("sortHost");
+  if (host) host.hidden = onWiki;
+  const sort = $("sort");
+  if (sort) sort.hidden = onWiki;
+  $("addBtn").hidden = state.bucket !== "manual";
+}
+
+function initSortPicker() {
+  const host = $("sortHost");
+  if (!host || sortPicker) return;
+  sortPicker = makeSelect({
+    id: "sort",
+    label: "排序方式",
+    value: state.sort,
+    items: [
+      { value: "recent", label: "最新优先" },
+      { value: "count", label: "次数优先" },
+    ],
+    onChange: (value) => {
+      state.sort = value === "count" ? "count" : "recent";
+      state.page = 1;
+      loadList({ direction: 0 });
+    },
+  });
+  host.append(sortPicker);
+}
+
+function paintHead(animate) {
+  const title = $("page-title");
+  const sub = $("page-sub");
+  const label = LABELS[state.bucket] || "词条";
+  let text = DESCS[state.bucket] || "";
+  if (state.scoped) {
+    text += state.scope ? ` · ${scopeName(state.scope)} [${scopeId(state.scope)}]` : " · 全局";
+  }
+  const changed = title.textContent !== label || sub.textContent !== text;
+  title.textContent = label;
+  sub.textContent = text;
+  document.title = `${label} · 鲸语汇`;
+  if (!animate || !changed || reducedMotion()) return;
+  for (const node of [title, sub]) {
+    node.animate(
+      [
+        { opacity: 0, transform: "translateY(2px)" },
+        { opacity: 1, transform: "none" },
+      ],
+      { duration: 200, easing: "cubic-bezier(.16, 1, .3, 1)" },
+    );
+  }
+}
+
+function selectBucket(key) {
+  if (!state.tree || !state.tree.buckets.some((bucket) => bucket.key === key)) return;
+  const previous = ORDER.indexOf(state.bucket);
+  const next = ORDER.indexOf(key);
+  const changed = state.bucket !== key || state.scoped || state.search || state.page !== 1;
+  if (!changed) return;
   state.bucket = key;
   state.scope = "";
   state.scoped = false;
-  state.collapsed.delete(key);
-  state.page = 1;
   state.search = "";
+  state.page = 1;
   $("search").value = "";
-  renderNav();
-  loadList();
+  syncTabs();
+  renderScopes();
+  syncListTools();
+  $("bulkbar").hidden = true;
+  $("list-meta").textContent = "读取中…";
+  paintHead(true);
+  moveInk(true);
+  window.scrollTo({ top: 0, behavior: "instant" in window ? "instant" : "auto" });
+  const direction = next === previous ? 0 : (next > previous ? 1 : -1);
+  loadList({ direction });
+}
+
+$("tabs").addEventListener("click", (event) => {
+  const tab = event.target.closest(".tabbtn");
+  if (tab) selectBucket(tab.dataset.bucket);
+});
+
+$("tabs").addEventListener("keydown", (event) => {
+  const tabs = $$("#tabs .tabbtn");
+  const current = tabs.findIndex((tab) => tab.getAttribute("aria-current") === "page");
+  let next = null;
+  if (event.key === "ArrowRight") next = (current + 1) % tabs.length;
+  else if (event.key === "ArrowLeft") next = (current - 1 + tabs.length) % tabs.length;
+  else if (event.key === "Home") next = 0;
+  else if (event.key === "End") next = tabs.length - 1;
+  if (next === null) return;
+  event.preventDefault();
+  tabs[next].focus();
+  selectBucket(tabs[next].dataset.bucket);
+});
+
+/* ---------- 范围筛选（模型配置同款卡片 + 滑动选中框） ---------- */
+
+function scopeInkRect() {
+  const list = $("scope-list");
+  const active = list && list.querySelector('.scope-card[aria-current="true"]');
+  if (!active) return null;
+  return {
+    x: active.offsetLeft,
+    y: active.offsetTop,
+    w: active.offsetWidth,
+    h: active.offsetHeight,
+  };
+}
+
+function placeScopeInk(from, animate) {
+  const list = $("scope-list");
+  if (!list) return;
+  let ink = list.querySelector(".entity-ink");
+  if (!ink) {
+    ink = document.createElement("span");
+    ink.className = "entity-ink";
+    ink.setAttribute("aria-hidden", "true");
+    list.prepend(ink);
+  }
+  const to = scopeInkRect();
+  if (!to || !to.w) {
+    ink.hidden = true;
+    return;
+  }
+  ink.hidden = false;
+  const apply = (rect) => {
+    ink.style.transform = `translate(${rect.x}px, ${rect.y}px)`;
+    ink.style.width = `${rect.w}px`;
+    ink.style.height = `${rect.h}px`;
+  };
+  ink.style.transition = "none";
+  apply(from || to);
+  void ink.offsetWidth;
+  if (from && animate && !reducedMotion()) {
+    ink.style.transition = "";
+    requestAnimationFrame(() => apply(to));
+  } else {
+    apply(to);
+    void ink.offsetWidth;
+    ink.style.transition = "";
+  }
+}
+
+function scopeCard(scope, name, meta, active, all) {
+  const card = document.createElement("button");
+  card.type = "button";
+  card.className = "entity scope-card";
+  card.dataset.scope = all ? "__all__" : scope;
+  card.setAttribute("aria-current", active ? "true" : "false");
+  card.setAttribute("aria-label", `${name}，${meta}`);
+  const nameNode = document.createElement("span");
+  nameNode.className = "entity-name";
+  nameNode.textContent = name;
+  const metaNode = document.createElement("span");
+  metaNode.className = "entity-meta";
+  metaNode.textContent = meta;
+  card.append(nameNode, metaNode);
+  if (active) {
+    const tag = document.createElement("span");
+    tag.className = "tag";
+    tag.textContent = "筛选中";
+    card.append(tag);
+  }
+  return card;
+}
+
+function renderScopes(options) {
+  const opts = options || {};
+  const wrap = $("scopebar");
+  const list = $("scope-list");
+  const bucket = state.tree && state.tree.buckets.find((item) => item.key === state.bucket);
+  const subs = (bucket && bucket.subs) || [];
+  if (state.bucket === "wiki" || !subs.length) {
+    wrap.hidden = true;
+    list.replaceChildren();
+    return;
+  }
+  wrap.hidden = false;
+  let activeName = "全部";
+  let activeCount = bucket.count;
+  if (state.scoped) {
+    const active = subs.find((sub) => sub.scope === state.scope);
+    activeName = state.scope ? ((active && active.name) || "未命名群") : "全局";
+    activeCount = active ? active.count : 0;
+  }
+  const metaNode = $("scope-meta");
+  if (metaNode) metaNode.textContent = `${fmtNum(activeCount)} 条 · 当前「${activeName}」`;
+  const from = opts.animate ? scopeInkRect() : null;
+  const frag = document.createDocumentFragment();
+  frag.append(scopeCard("", "全部", `所有群 · ${fmtNum(bucket.count)} 条`, !state.scoped, true));
+  for (const sub of subs) {
+    const isGlobal = !sub.scope;
+    const meta = `${isGlobal ? "所有群通用" : `[${scopeId(sub.scope)}]`} · ${fmtNum(sub.count)} 条`;
+    frag.append(scopeCard(
+      sub.scope,
+      isGlobal ? "全局" : (sub.name || "未命名群"),
+      meta,
+      state.scoped && state.scope === sub.scope,
+      false,
+    ));
+  }
+  list.replaceChildren(frag);
+  placeScopeInk(from, Boolean(from && opts.animate));
+}
+
+$("scope-list").addEventListener("click", (event) => {
+  const card = event.target.closest(".scope-card");
+  if (!card) return;
+  const raw = card.dataset.scope;
+  const scoped = raw !== "__all__";
+  const scope = scoped ? raw : "";
+  if (state.scoped === scoped && state.scope === scope) return;
+  state.scoped = scoped;
+  state.scope = scope;
+  state.page = 1;
+  renderScopes({ animate: true });
+  paintHead(true);
+  loadList({ direction: 0 });
 });
 
 /* ---------- 列表 ---------- */
 
-function titleOf() {
-  const label = LABELS[state.bucket] || "全部";
-  if (!state.scoped) return label;
-  if (!state.scope) return `${label} · 全局`;
-  const bucket = state.tree && state.tree.buckets.find((b) => b.key === state.bucket);
-  const sub = bucket && bucket.subs.find((s) => s.scope === state.scope);
-  const name = sub && sub.name ? sub.name : "群";
-  return `${label} · ${name} [${scopeId(state.scope)}]`;
-}
-
-function scopeOptions(current) {
-  const options = [`<option value="__global__">全局（所有群）</option>`];
+function scopeItems(current) {
+  const items = [{ value: "__global__", label: "全局（所有群）" }];
   const seen = new Set();
   (state.tree ? state.tree.buckets : []).forEach((bucket) => {
     (bucket.subs || []).forEach((sub) => {
       if (!sub.scope || seen.has(sub.scope)) return;
       seen.add(sub.scope);
       const name = sub.name || "未命名群";
-      options.push(`<option value="${esc(sub.scope)}">${esc(name)} [${esc(scopeId(sub.scope))}]</option>`);
+      items.push({ value: sub.scope, label: `${name} [${scopeId(sub.scope)}]` });
     });
   });
-  if (current && !seen.has(current)) {
-    options.push(`<option value="${esc(current)}">${esc(scopeName(current))}</option>`);
+  if (current && current !== "__global__" && !seen.has(current)) {
+    items.push({ value: current, label: scopeName(current) });
   }
-  return options.join("");
+  return items;
 }
 
 function entryHTML(item) {
@@ -626,26 +1041,26 @@ function entryHTML(item) {
         <p class="entry-meaning${item.meaning ? "" : " empty"}" title="${esc(item.meaning)}">${esc(item.meaning) || "（没有摘要）"}</p>
         <p class="entry-meta">梗百科 · 只读${tags}</p>
       </div>
-      <div class="entry-ops"><button class="btn" data-variant="outline" data-size="sm" type="button" disabled>只读</button></div>
+      <div class="entry-ops"><span class="tag">只读</span></div>
     </article>`;
   }
 
   const pending = state.bucket === "pending";
   const picked = state.selected.has(item.id);
   const pick = pending
-    ? `<label class="entry-pick">
+    ? `<label class="entry-pick" title="选择">
          <input type="checkbox" ${picked ? "checked" : ""} aria-label="选择 ${esc(name)}">
        </label>`
     : "";
   const src = item.source === "manual" ? "手动" : "自动";
-  const where = item.is_global ? "全局" : scopeName(item.scope);
+  const where = item.is_global ? "全局" : esc(scopeName(item.scope));
   const who = item.contributor ? `来源：${esc(item.contributor)}` : "";
   const note = item.auto_note ? `理由：${esc(item.auto_note)}` : "";
   const meta = [src, where, who, `×${item.count || 1}`,
     item.updated_at ? fmtDate(item.updated_at) : "", note].filter(Boolean).join(" · ");
   const keywords = item.keywords ? `<p class="entry-meta">关键词：${esc(item.keywords)}</p>` : "";
 
-  return `<article class="entry${pending ? " pending" : ""}${picked ? " picked" : ""}" data-key="${esc(item.id)}">
+  return `<article class="entry${pending ? " has-pick" : ""}${picked ? " picked" : ""}" data-key="${esc(item.id)}">
     ${pick}
     <div class="entry-name">${esc(name)}</div>
     <div class="entry-body">
@@ -654,93 +1069,115 @@ function entryHTML(item) {
       <p class="entry-meta">${meta}</p>
     </div>
     <div class="entry-ops">
-      <button class="btn" data-size="sm"${pending ? "" : ` data-variant="outline"`} type="button" data-act="approve">${pending ? "审核" : "驳回"}</button>
+      <button class="btn" data-variant="outline" data-size="sm" type="button" data-act="approve">${pending ? "通过" : "驳回"}</button>
       <button class="btn" data-variant="outline" data-size="sm" type="button" data-act="edit">修改</button>
       <button class="btn" data-variant="destructive" data-size="sm" type="button" data-act="del">删除</button>
     </div>
   </article>`;
 }
 
+function emptyHTML() {
+  if (state.search) {
+    return `<div class="blank-card">没有匹配「${esc(state.search)}」的词条。
+      <div class="blank-action"><button class="btn" data-variant="outline" data-size="sm" type="button" data-act="clear-search">清空搜索</button></div>
+    </div>`;
+  }
+  const text = {
+    manual: "还没有手动词条。",
+    auto: "还没有学来的词条。",
+    pending: "没有待审的候选，等模型学一批。",
+    wiki: "梗百科还没有条目。",
+  }[state.bucket] || "这里还没有词条。";
+  const action = state.bucket === "manual"
+    ? `<div class="blank-action"><button class="btn" data-variant="outline" data-size="sm" type="button" data-act="new">+ 手动录入</button></div>`
+    : "";
+  return `<div class="blank-card">${text}${action}</div>`;
+}
+
+function renderError(error) {
+  state.items.clear();
+  state.selected.clear();
+  $("list-meta").textContent = "读取失败";
+  $("list").innerHTML = `<div class="blank-card">列表读取失败：${esc(error.message)}
+    <div class="blank-action"><button class="btn" data-variant="outline" data-size="sm" type="button" data-act="retry">重试</button></div>
+  </div>`;
+  $("list-foot").hidden = true;
+  $("bulkbar").hidden = true;
+}
+
 function renderPager(total, page, size) {
-  const box = $("pager");
   const pages = Math.max(1, Math.ceil(total / size));
-  if (total <= size) { box.hidden = true; return; }
-  box.hidden = false;
-  box.innerHTML = `<button class="btn" data-variant="outline" data-size="sm" type="button" data-page="${page - 1}" ${page <= 1 ? "disabled" : ""}>上一页</button>
-    <span>第 ${page} / ${pages} 页 · 共 ${total} 条</span>
+  $("foot-count").textContent = `第 ${page} / ${pages} 页 · 每页 ${size} 条`;
+  const pager = $("pager");
+  pager.hidden = pages <= 1;
+  pager.innerHTML = `<button class="btn" data-variant="outline" data-size="sm" type="button" data-page="${page - 1}" ${page <= 1 ? "disabled" : ""}>上一页</button>
+    <span>${page} / ${pages}</span>
     <button class="btn" data-variant="outline" data-size="sm" type="button" data-page="${page + 1}" ${page >= pages ? "disabled" : ""}>下一页</button>`;
+}
+
+function renderList(data) {
+  const items = data.items || [];
+  state.items.clear();
+  state.selected.clear();
+  items.forEach((item) => state.items.set(item.id, item));
+
+  $("list-meta").textContent = `共 ${fmtNum(data.total)} 条`;
+  $("list").dataset.bucket = state.bucket;
+  $("list").innerHTML = items.length ? items.map(entryHTML).join("") : emptyHTML();
+  syncListTools();
+  $("list-foot").hidden = data.total === 0;
+  if (data.total > 0) {
+    renderPager(data.total, data.page || state.page, data.size || state.size);
+  }
+  syncBulk();
+}
+
+async function loadList(options) {
+  const opts = options || {};
+  const direction = typeof opts.direction === "number" ? opts.direction : null;
+  const seq = ++listSeq;
+  const card = $("list-card");
+  card.classList.add("is-loading");
+  let ok = false;
+  try {
+    let data = null;
+    while (true) {
+      const params = new URLSearchParams({
+        bucket: state.bucket,
+        search: state.search,
+        scope: state.scoped ? state.scope : "",
+        scoped: state.scoped ? "true" : "false",
+        page: String(state.page),
+        size: String(state.size),
+        sort: state.sort,
+      });
+      data = await req("list?" + params.toString());
+      if (seq !== listSeq) return;
+      // 页码越界（比如删到最后一页空了）就回第一页，不把空页留给用户
+      if (data.items && data.items.length === 0 && state.page > 1) {
+        state.page = 1;
+        continue;
+      }
+      break;
+    }
+    renderList(data);
+    ok = true;
+  } catch (error) {
+    if (seq === listSeq) renderError(error);
+  } finally {
+    if (seq === listSeq) {
+      card.classList.remove("is-loading");
+      if (ok && direction !== null) animateCard(direction);
+    }
+  }
 }
 
 $("pager").addEventListener("click", (event) => {
   const button = event.target.closest("button[data-page]");
   if (!button || button.disabled) return;
   state.page = Number(button.dataset.page);
-  loadList();
+  loadList({ direction: 0 });
 });
-
-function syncBulk() {
-  const isPending = state.bucket === "pending" && state.items.size > 0;
-  $("bulkbar").hidden = !isPending;
-  if (!isPending) return;
-  const count = state.selected.size;
-  $("pickInfo").textContent = `已选 ${count} 条`;
-  $("bulkApprove").disabled = count === 0;
-  $("bulkDelete").disabled = count === 0;
-  const picks = Array.from(document.querySelectorAll("#list .entry-pick input"));
-  $("pickAll").checked = picks.length > 0 && picks.every((box) => box.checked);
-  $("pickAll").indeterminate = count > 0 && !$("pickAll").checked;
-}
-
-async function loadTree() {
-  const data = await req("tree");
-  state.tree = data;
-  state.names = {};
-  (data.buckets || []).forEach((bucket) => {
-    (bucket.subs || []).forEach((sub) => {
-      if (sub.scope && sub.name) state.names[sub.scope] = sub.name;
-    });
-  });
-  renderNav();
-}
-
-async function loadList() {
-  const params = new URLSearchParams({
-    bucket: state.bucket,
-    search: state.search,
-    scope: state.scoped ? state.scope : "",
-    scoped: state.scoped ? "true" : "false",
-    page: String(state.page),
-    size: String(state.size),
-    sort: state.sort,
-  });
-  const data = await req("list?" + params.toString());
-  if (!data.items.length && state.page > 1) {
-    state.page -= 1;
-    return loadList();
-  }
-  state.items.clear();
-  state.selected.clear();
-
-  const label = LABELS[state.bucket] || state.bucket;
-  $("title").firstChild.textContent = titleOf();
-  $("subtitle").textContent = `${data.total} 条`;
-  $("sort").hidden = state.bucket === "wiki";
-  $("addBtn").hidden = state.bucket !== "manual";
-
-  (data.items || []).forEach((item) => state.items.set(item.id, item));
-  $("list").innerHTML = (data.items || []).length
-    ? data.items.map(entryHTML).join("")
-    : `<div class="empty">这里还没有词条</div>`;
-  syncBulk();
-  renderPager(data.total, data.page || state.page, data.size || state.size);
-}
-
-async function refresh() {
-  try { await loadTree(); } catch (error) { toast(`侧栏读取失败：${error.message}`, "bad"); }
-  try { await loadList(); } catch (error) {
-    $("list").innerHTML = `<div class="empty">列表读取失败：${esc(error.message)}</div>`;
-  }
-}
 
 /* ---------- 词条操作 ---------- */
 
@@ -755,174 +1192,85 @@ $("list").addEventListener("change", (event) => {
   syncBulk();
 });
 
-$("list").addEventListener("click", async (event) => {
+async function approveEntry(item, button) {
+  button.disabled = true;
+  try {
+    const data = await req("approve", { table: item.table, name: item.content, scope: item.scope || "" });
+    toast(data.message || "已处理", "ok");
+    await refresh();
+  } catch (error) {
+    toast(error.message, "bad");
+    button.disabled = false;
+  }
+}
+
+async function deleteEntry(item) {
+  const data = await req("delete", { table: item.table, name: item.content, scope: item.scope || "" });
+  toast(data.message || "已删除", "ok");
+  await refresh();
+}
+
+$("list").addEventListener("click", (event) => {
   const button = event.target.closest("button[data-act]");
   if (!button) return;
-  const row = button.closest(".entry");
-  const item = state.items.get(row.dataset.key);
-  if (!item) return;
   const act = button.dataset.act;
+  if (act === "new") { openEditor(null); return; }
+  if (act === "clear-search") {
+    $("search").value = "";
+    state.search = "";
+    state.page = 1;
+    loadList({ direction: 0 });
+    return;
+  }
+  if (act === "retry") { refresh(); return; }
 
-  if (act === "confirm-del") {
-    button.disabled = true;
-    try {
-      const data = await req("delete", { table: item.table, name: item.content, scope: item.scope || "" });
-      toast(data.message || "已删除", "ok");
-      await refresh();
-    } catch (error) {
-      toast(error.message, "bad");
-      button.disabled = false;
-    }
-    return;
-  }
-  if (act === "cancel") {
-    closeArmed(row);
-    return;
-  }
-  if (act === "del") {
-    armDelete(row);
-    return;
-  }
+  const row = button.closest(".entry");
+  const item = row && state.items.get(row.dataset.key);
+  if (!item) return;
+
   if (act === "approve") {
-    button.disabled = true;
-    try {
-      const data = await req("approve", { table: item.table, name: item.content, scope: item.scope || "" });
-      toast(data.message || "已处理", "ok");
-      await refresh();
-    } catch (error) {
-      toast(error.message, "bad");
-      button.disabled = false;
-    }
+    approveEntry(item, button);
     return;
   }
   if (act === "edit") {
     openEditor(item);
+    return;
+  }
+  if (act === "del") {
+    showConfirm(
+      "删除词条",
+      `确定删除「${item.content}」？删了就找不回来了。`,
+      "删除",
+      () => deleteEntry(item),
+      true,
+    );
   }
 });
 
-function armDelete(row) {
-  const ops = row.querySelector(".entry-ops");
-  if (!ops || ops.dataset.armed) return;
-  ops.dataset.armed = "1";
-  ops.dataset.backup = ops.innerHTML;
-  ops.innerHTML = `<button class="btn" data-variant="destructive" data-size="sm" type="button" data-act="confirm-del">确认删除</button>
-    <button class="btn" data-variant="outline" data-size="sm" type="button" data-act="cancel">取消</button>`;
-  ops.style.gridTemplateColumns = "1fr 1fr";
-}
-
-function closeArmed(row) {
-  const ops = row.querySelector(".entry-ops");
-  if (!ops || !ops.dataset.armed) return;
-  ops.innerHTML = ops.dataset.backup || "";
-  ops.style.gridTemplateColumns = "";
-  delete ops.dataset.armed;
-  delete ops.dataset.backup;
-}
-
-/* ---------- 录入 / 修改 ---------- */
-
-function updateCounter() {
-  const text = $("fMeaning").value || "";
-  const over = text.length > state.limit;
-  $("fCount").textContent = `${text.length}/${state.limit}`;
-  $("fCount").classList.toggle("over", over);
-  $("editSave").disabled = over || !text.trim() || !$("fName").value.trim();
-}
-
-$("fMeaning").addEventListener("input", updateCounter);
-$("fName").addEventListener("input", updateCounter);
-
-function openEditor(item) {
-  state.editing = item || null;
-  const editing = Boolean(item);
-  $("editTitle").textContent = editing ? "修改词条" : "手动录入";
-  $("editSub").textContent = editing
-    ? "改完直接生效；改名或改作用域会做重名检查。"
-    : "录入的词条会直接进「手动」，参与注入。";
-  const scope = item ? item.scope : (state.scoped ? state.scope : "");
-  $("fScope").innerHTML = scopeOptions(scope);
-  $("fName").value = item ? item.content : "";
-  $("fKeywords").value = item ? (item.keywords || "") : "";
-  $("fMeaning").value = item ? (item.meaning || "") : "";
-  $("fScope").value = scope || "__global__";
-  $("editHint").textContent = "";
-  updateCounter();
-  openMask($("editMask"));
-  setTimeout(() => $("fName").focus(), 60);
-}
-
-$("addBtn").addEventListener("click", () => openEditor(null));
-
-$("editSave").addEventListener("click", async () => {
-  const name = $("fName").value.trim();
-  const meaning = $("fMeaning").value.trim();
-  const keywords = $("fKeywords").value.trim();
-  const raw = $("fScope").value;
-  const scope = raw === "__global__" ? "" : raw;
-  if (!name || !meaning) { toast("词条名和内容都要填", "bad"); return; }
-
-  const button = $("editSave");
-  button.disabled = true;
-  try {
-    if (state.editing) {
-      const item = state.editing;
-      const data = await req("update", {
-        table: item.table, old_name: item.content, old_scope: item.scope || "",
-        name, meaning, keywords, scope,
-      });
-      toast(data.message || "已更新", "ok");
-      closeMask($("editMask"));
-      state.editing = null;
-      await refresh();
-    } else {
-      const dup = await req("lookup", { name, scope });
-      const manual = (dup.items || []).find((x) => x.source === "manual");
-      if (manual) {
-        $("editHint").textContent = `「${name}」在这个作用域已经有了（${manual.table === "manual" ? "手动" : "手动待审"}），要改内容请用「修改」。`;
-        toast("已存在同名手动词条", "bad");
-        button.disabled = false;
-        return;
-      }
-      const auto = (dup.items || []).find((x) => x.source !== "manual");
-      if (auto) {
-        showConfirm("要新建吗？",
-          `黑话库已有同名条目「${name}」：\n${(auto.meaning || "").slice(0, 60)}…\n\n继续会在「手动」里新建一条，不会覆盖黑话库那条。`,
-          "仍要新建", async () => {
-            await submitAdd(name, meaning, keywords, scope);
-          });
-        button.disabled = false;
-        return;
-      }
-      await submitAdd(name, meaning, keywords, scope);
-    }
-  } catch (error) {
-    $("editHint").textContent = error.message;
-    toast(error.message, "bad");
-    button.disabled = false;
+function syncBulk() {
+  const isPending = state.bucket === "pending" && state.items.size > 0;
+  $("bulkbar").hidden = !isPending;
+  if (!isPending) {
+    $("pickInfo").textContent = "已选 0 条";
+    $("pickAll").checked = false;
+    $("pickAll").indeterminate = false;
+    $("bulkApprove").disabled = true;
+    $("bulkDelete").disabled = true;
+    return;
   }
-});
-
-async function submitAdd(name, meaning, keywords, scope) {
-  try {
-    const data = await req("add", { name, content: name, meaning, keywords, scope });
-    toast(data.message || "已录入", "ok");
-    closeMask($("editMask"));
-    state.editing = null;
-    await refresh();
-  } catch (error) {
-    $("editHint").textContent = error.message;
-    toast(error.message, "bad");
-  } finally {
-    updateCounter();
-  }
+  const count = state.selected.size;
+  $("pickInfo").textContent = `已选 ${count} 条`;
+  $("bulkApprove").disabled = count === 0;
+  $("bulkDelete").disabled = count === 0;
+  const picks = $$("#list .entry-pick input");
+  $("pickAll").checked = picks.length > 0 && picks.every((box) => box.checked);
+  $("pickAll").indeterminate = count > 0 && !$("pickAll").checked;
 }
-
-/* ---------- 批量 ---------- */
 
 $("pickAll").addEventListener("change", () => {
   const on = $("pickAll").checked;
   state.selected.clear();
-  document.querySelectorAll("#list .entry").forEach((row) => {
+  $$("#list .entry").forEach((row) => {
     const box = row.querySelector(".entry-pick input");
     if (!box) return;
     box.checked = on;
@@ -938,96 +1286,247 @@ async function bulkAction(action) {
     return item ? { table: item.table, name: item.content, scope: item.scope || "" } : null;
   }).filter(Boolean);
   if (!items.length) return;
-  try {
-    const data = await req("bulk", { action, items });
-    toast(data.message || "完成", "ok");
-    await refresh();
-  } catch (error) {
-    toast(error.message, "bad");
-  }
+  const data = await req("bulk", { action, items });
+  toast(data.message || "完成", "ok");
+  await refresh();
 }
 
-$("bulkApprove").addEventListener("click", () => bulkAction("approve"));
+$("bulkApprove").addEventListener("click", async () => {
+  const button = $("bulkApprove");
+  button.disabled = true;
+  try { await bulkAction("approve"); } catch (error) { toast(error.message, "bad"); syncBulk(); }
+});
+
 $("bulkDelete").addEventListener("click", () => {
   const count = state.selected.size;
   if (!count) return;
-  showConfirm("删除所选", `确定删除选中的 ${count} 条待审吗？删了就找不回来了。`, "确认删除",
-    () => bulkAction("delete"));
+  showConfirm(
+    "删除所选",
+    `确定删除选中的 ${count} 条待审吗？删了就找不回来了。`,
+    "删除",
+    async () => {
+      try { await bulkAction("delete"); } catch (error) { toast(error.message, "bad"); syncBulk(); }
+    },
+    true,
+  );
 });
 
-/* ---------- 工具栏 ---------- */
+/* ---------- 录入 / 修改 ---------- */
 
-let searchTimer;
-$("search").addEventListener("input", (event) => {
-  clearTimeout(searchTimer);
-  const value = event.target.value.trim();
-  searchTimer = setTimeout(() => {
-    state.search = value;
-    state.page = 1;
-    loadList().catch((error) => toast(error.message, "bad"));
-  }, 260);
+function updateCounter() {
+  const text = $("fMeaning").value || "";
+  const length = Array.from(text).length;
+  const over = length > state.limit;
+  $("fCount").textContent = `${length}/${state.limit}`;
+  $("fCount").classList.toggle("over", over);
+  $("editSave").disabled = over || !text.trim() || !$("fName").value.trim();
+}
+
+function setNameError(message) {
+  const input = $("fName");
+  const err = $("fNameErr");
+  if (!input || !err) return;
+  input.classList.toggle("invalid", Boolean(message));
+  input.setAttribute("aria-invalid", message ? "true" : "false");
+  err.textContent = message || "";
+  if (message) {
+    input.focus();
+    input.select();
+  }
+}
+
+function clearDuplicateWarning() {
+  if (pendingDuplicate) {
+    pendingDuplicate = null;
+    $("editSave").textContent = "确认";
+  }
+  $("editHint").textContent = "";
+}
+
+function renderScopePicker(current) {
+  const host = $("fScopeHost");
+  scopePicker = null;
+  if (!host) return;
+  host.replaceChildren();
+  scopePicker = makeSelect({
+    id: "fScope",
+    label: "作用域",
+    value: current || "__global__",
+    items: scopeItems(current || "__global__"),
+  });
+  scopePicker.addEventListener("change", () => {
+    clearDuplicateWarning();
+    setNameError("");
+  });
+  host.append(scopePicker);
+}
+
+function openEditor(item) {
+  state.editing = item || null;
+  pendingDuplicate = null;
+  $("editSave").textContent = "确认";
+  const editing = Boolean(item);
+  $("editTitle").textContent = editing ? "修改词条" : "手动录入";
+  $("editSub").textContent = editing
+    ? "改完直接生效；改名或改作用域会做重名检查。"
+    : "录入的词条会直接进「手动」，参与注入。";
+  const scope = item ? item.scope : (state.scoped ? state.scope : "");
+  $("fName").value = item ? item.content : "";
+  $("fKeywords").value = item ? (item.keywords || "") : "";
+  $("fMeaning").value = item ? (item.meaning || "") : "";
+  renderScopePicker(scope);
+  setNameError("");
+  $("editHint").textContent = "";
+  updateCounter();
+  openMask($("editMask"));
+  setTimeout(() => {
+    $("fName").focus();
+    if (editing) $("fName").select();
+  }, 60);
+}
+
+$("addBtn").addEventListener("click", () => openEditor(null));
+$("fMeaning").addEventListener("input", updateCounter);
+$("fName").addEventListener("input", () => {
+  updateCounter();
+  setNameError("");
+});
+for (const id of ["fName", "fKeywords", "fMeaning"]) {
+  $(id).addEventListener("input", clearDuplicateWarning);
+  $(id).addEventListener("change", clearDuplicateWarning);
+}
+
+$("editMask").addEventListener("close", () => setNameError(""));
+
+$("editSave").addEventListener("click", async () => {
+  const name = $("fName").value.trim();
+  const meaning = $("fMeaning").value.trim();
+  const keywords = $("fKeywords").value.trim();
+  const raw = scopePicker ? scopePicker.value : "__global__";
+  const scope = raw === "__global__" ? "" : raw;
+  if (!name || !meaning) { toast("词条名和内容都要填", "bad"); return; }
+
+  const button = $("editSave");
+  button.disabled = true;
+  try {
+    if (state.editing) {
+      const item = state.editing;
+      const data = await req("update", {
+        table: item.table, old_name: item.content, old_scope: item.scope || "",
+        name, meaning, keywords, scope,
+      });
+      closeMask($("editMask"));
+      toast(data.message || "已更新", "ok");
+      state.editing = null;
+      await refresh();    } else if (pendingDuplicate) {
+      pendingDuplicate = null;
+      $("editSave").textContent = "确认";
+      await submitAdd(name, meaning, keywords, scope);
+    } else {
+      const dup = await req("lookup", { name, scope });
+      const manual = (dup.items || []).find((x) => x.source === "manual");
+      if (manual) {
+        const side = manual.table === "manual" ? "手动" : "手动待审";
+        setNameError(`同名${side}词条「${name}」已存在；要改内容请用「修改」。`);
+        $("editHint").textContent = "";
+        toast(`同名词条「${name}」已存在`, "bad");
+        button.disabled = false;
+        return;
+      }
+      const auto = (dup.items || []).find((x) => x.source !== "manual");
+      if (auto) {
+        pendingDuplicate = { name, meaning, keywords, scope };
+        $("editSave").textContent = "仍要新建";
+        $("editHint").textContent = `黑话库已有同名条目「${name}」：${(auto.meaning || "").slice(0, 60)}… 再点一次就在「手动」里新建，不覆盖原条目。`;
+        toast("黑话库已有同名条目，再点一次确认", "bad");
+        button.disabled = false;
+        return;
+      }
+      await submitAdd(name, meaning, keywords, scope);
+    }
+  } catch (error) {
+    $("editHint").textContent = error.message;
+    toast(error.message, "bad");
+    button.disabled = false;
+  }
 });
 
-$("sort").addEventListener("change", (event) => {
-  state.sort = event.target.value === "count" ? "count" : "recent";
-  state.page = 1;
-  loadList().catch((error) => toast(error.message, "bad"));
-});
+async function submitAdd(name, meaning, keywords, scope) {
+  try {
+    const data = await req("add", { name, content: name, meaning, keywords, scope });
+    closeMask($("editMask"));
+    toast(data.message || "已录入", "ok");
+    state.editing = null;
+    pendingDuplicate = null;
+    $("editSave").textContent = "确认";
+    await refresh();
+  } catch (error) {
+    $("editHint").textContent = error.message;
+    toast(error.message, "bad");
+    $("editSave").disabled = false;
+  } finally {
+    updateCounter();
+  }
+}
 
 /* ---------- 设置 ---------- */
 
-const PLUGIN_ID = "whale_lexicon";
 let settingFields = [];
 let settingReaders = {};
 
 function settingControl(field, value) {
   const wrap = document.createElement("div");
-  wrap.className = "set-field";
+  wrap.className = "field";
   wrap.dataset.field = field.key;
+  if (field.multiline) wrap.classList.add("field-wide");
+
+  const head = document.createElement("div");
+  head.className = "field-head";
   const label = document.createElement("label");
   label.textContent = field.label || field.key;
   const id = `s-${field.key}`;
   label.htmlFor = id;
+  const key = document.createElement("span");
+  key.className = "key";
+  key.textContent = field.key;
+  head.append(label, key);
+  wrap.append(head);
 
   let read;
   if (field.type === "bool") {
-    const box = document.createElement("div");
-    box.className = "switch-row";
+    const row = document.createElement("div");
+    row.className = "switch-row";
     const input = document.createElement("input");
     input.type = "checkbox";
     input.role = "switch";
     input.className = "input";
     input.id = id;
     input.checked = Boolean(value);
-    const state = document.createElement("span");
-    state.className = "state";
-    state.textContent = input.checked ? "开" : "关";
-    input.addEventListener("change", () => { state.textContent = input.checked ? "开" : "关"; });
-    box.append(input, state);
-    wrap.append(label, box);
+    const stateNode = document.createElement("span");
+    stateNode.className = "state";
+    stateNode.textContent = input.checked ? "开" : "关";
+    input.addEventListener("change", () => { stateNode.textContent = input.checked ? "开" : "关"; });
+    row.append(input, stateNode);
+    wrap.append(row);
     read = () => input.checked;
-  } else if (field.type === "options" && Array.isArray(field.options) && field.options.length) {
-    const select = document.createElement("select");
-    select.className = "select";
-    select.id = id;
+  } else if ((field.type === "options" || field.type === "select")
+      && Array.isArray(field.options) && field.options.length) {
     const labels = Array.isArray(field.labels) ? field.labels : [];
     const current = value === null || value === undefined ? "" : String(value);
-    let known = false;
-    field.options.forEach((option, index) => {
-      const node = document.createElement("option");
-      node.value = String(option);
-      node.textContent = labels[index] || String(option);
-      if (String(option) === current) known = true;
-      select.append(node);
-    });
-    if (!known && current) {
-      const node = document.createElement("option");
-      node.value = current;
-      node.textContent = current;
-      select.append(node);
+    const items = field.options.map((option, index) => ({
+      value: String(option),
+      label: labels[index] || String(option),
+    }));
+    if (current && !items.some((item) => item.value === current)) {
+      items.push({ value: current, label: current });
     }
-    select.value = current;
-    wrap.append(label, select);
+    const select = makeSelect({
+      id,
+      label: field.label || field.key,
+      value: current,
+      items,
+    });
+    wrap.append(select);
     read = () => select.value;
   } else if (field.multiline) {
     const area = document.createElement("textarea");
@@ -1035,7 +1534,7 @@ function settingControl(field, value) {
     area.className = "textarea";
     area.rows = field.rows || 3;
     area.value = value === null || value === undefined ? "" : String(value);
-    wrap.append(label, area);
+    wrap.append(area);
     read = () => area.value;
   } else {
     const input = document.createElement("input");
@@ -1044,8 +1543,9 @@ function settingControl(field, value) {
     input.type = field.type === "number" ? "number" : "text";
     if (field.min !== undefined) input.min = field.min;
     if (field.max !== undefined) input.max = field.max;
+    if (field.step !== undefined) input.step = field.step;
     input.value = value === null || value === undefined ? "" : String(value);
-    wrap.append(label, input);
+    wrap.append(input);
     read = () => (field.type === "number" ? Number(input.value) : input.value);
   }
   if (field.help) {
@@ -1066,7 +1566,12 @@ function applySettingConditions() {
     const node = body.querySelector(`[data-field="${field.key}"]`);
     const read = settingReaders[condition.key];
     if (!node || !read) continue;
-    node.hidden = String(read()) !== String(condition.value);
+    const wanted = condition.value;
+    const value = read();
+    const match = Array.isArray(wanted)
+      ? wanted.map(String).includes(String(value))
+      : String(value) === String(wanted);
+    node.hidden = !match;
   }
 }
 
@@ -1074,7 +1579,12 @@ function renderSettings(fields, values) {
   settingFields = fields;
   settingReaders = {};
   const body = $("settingsBody");
-  body.textContent = "";
+  body.replaceChildren();
+  if (!fields.length) {
+    body.innerHTML = `<p class="hint">这个插件没有可改的设置。</p>`;
+    $("settingsSave").disabled = false;
+    return;
+  }
   const groups = [];
   for (const field of fields) {
     const key = field.group || "";
@@ -1086,34 +1596,45 @@ function renderSettings(fields, values) {
     group.fields.push(field);
   }
   for (const group of groups) {
-    const section = document.createElement("div");
-    section.className = "set-group";
+    const section = document.createElement("section");
+    section.className = "dialog-group";
     if (group.label) {
-      const title = document.createElement("p");
-      title.className = "set-title";
+      const title = document.createElement("h4");
+      title.className = "dialog-group-title";
       title.textContent = group.label;
       section.append(title);
     }
+    const grid = document.createElement("div");
+    grid.className = "dialog-grid";
     for (const field of group.fields) {
-      section.append(settingControl(field, values ? values[field.key] : undefined));
+      grid.append(settingControl(field, values ? values[field.key] : undefined));
     }
+    section.append(grid);
     body.append(section);
   }
   body.oninput = applySettingConditions;
   body.onchange = applySettingConditions;
   applySettingConditions();
+  $("settingsSave").disabled = false;
 }
 
 async function openSettings() {
   $("settingsHint").textContent = "";
   $("settingsBody").innerHTML = `<p class="hint">读取中…</p>`;
+  settingFields = [];
+  settingReaders = {};
+  $("settingsSave").disabled = true;
   openMask($("settingsMask"));
   try {
-    const res = await fetch(`/api/plugins/${PLUGIN_ID}/settings`);
-    const data = await res.json();
+    const res = await fetch(`/api/plugins/${PLUGIN_ID}/settings`, { cache: "no-store" });
+    let data = null;
+    try { data = await res.json(); } catch (error) { /* 下面统一报错 */ }
+    if (!data) throw new Error(`服务器返回了 ${res.status}`);
     if (!res.ok || data.ok === false) throw new Error(data.message || `读取失败（${res.status}）`);
+    if (!$("settingsMask").open) return;
     renderSettings(data.fields || [], data.values || {});
   } catch (error) {
+    if (!$("settingsMask").open) return;
     $("settingsBody").innerHTML = `<p class="hint">读取设置失败：${esc(error.message)}</p>`;
   }
 }
@@ -1132,11 +1653,13 @@ $("settingsSave").addEventListener("click", async () => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ values }),
     });
-    const data = await res.json();
+    let data = null;
+    try { data = await res.json(); } catch (error) { /* 下面统一报错 */ }
+    if (!data) throw new Error(`服务器返回了 ${res.status}`);
     if (!res.ok || data.ok === false) throw new Error(data.message || "保存失败");
     closeMask($("settingsMask"));
     toast(data.message || "设置已保存", "ok");
-    await refreshStatus();
+    await refresh();
   } catch (error) {
     $("settingsHint").textContent = error.message;
   } finally {
@@ -1144,15 +1667,81 @@ $("settingsSave").addEventListener("click", async () => {
   }
 });
 
-/* ---------- 主题 / 快捷键 ---------- */
+/* ---------- 主题 / 顶栏 / 快捷键 ---------- */
 
-$("theme").addEventListener("click", () => {
+function paintTheme(theme) {
   const html = document.documentElement;
-  const next = html.getAttribute("data-theme") === "dark" ? "light" : "dark";
-  html.setAttribute("data-theme", next);
-  html.classList.toggle("dark", next === "dark");
-  try { localStorage.setItem("qqbotlite-theme", next); } catch (error) {}
-});
+  html.setAttribute("data-theme", theme);
+  html.style.colorScheme = theme;
+  html.classList.toggle("dark", theme === "dark");
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute("content", theme === "dark" ? "#0a0f1a" : "#f9fcfe");
+  const button = $("theme");
+  if (button) {
+    button.textContent = theme === "dark" ? "◑" : "◐";
+    button.title = theme === "dark" ? "切到浅色" : "切到深色";
+    button.setAttribute("aria-label", theme === "dark" ? "切换到浅色主题" : "切换到深色主题");
+  }
+}
+
+function initTheme() {
+  const button = $("theme");
+  if (!button) return;
+  paintTheme(document.documentElement.getAttribute("data-theme") || "light");
+  button.addEventListener("click", (event) => {
+    const current = document.documentElement.getAttribute("data-theme") || "light";
+    const next = current === "dark" ? "light" : "dark";
+    const x = event.clientX ?? window.innerWidth / 2;
+    const y = event.clientY ?? 40;
+    const radius = Math.hypot(Math.max(x, window.innerWidth - x), Math.max(y, window.innerHeight - y));
+    const root = document.documentElement;
+    root.style.setProperty("--vt-x", x + "px");
+    root.style.setProperty("--vt-y", y + "px");
+    root.style.setProperty("--vt-r", radius + "px");
+
+    if (typeof document.startViewTransition !== "function" || reducedMotion()) {
+      paintTheme(next);
+      return;
+    }
+    document.startViewTransition(() => paintTheme(next));
+    button.animate(
+      [{ transform: "rotate(0deg)" }, { transform: "rotate(180deg)" }],
+      { duration: 240, easing: "cubic-bezier(.22, 1.15, .36, 1)" },
+    );
+  });
+}
+
+function initTopbar() {
+  const bar = $("topbar");
+  if (!bar) return;
+  let ticking = false;
+  const update = () => {
+    bar.classList.toggle("is-scrolled", window.scrollY > 8);
+    ticking = false;
+  };
+  window.addEventListener(
+    "scroll",
+    () => {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(update);
+    },
+    { passive: true },
+  );
+  update();
+}
+
+function initFullscreen() {
+  const button = $("full");
+  if (!button) return;
+  button.addEventListener("click", () => {
+    if (document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {});
+    } else if (document.documentElement.requestFullscreen) {
+      document.documentElement.requestFullscreen().catch(() => {});
+    }
+  });
+}
 
 function isTyping(node) {
   if (!node) return false;
@@ -1160,52 +1749,170 @@ function isTyping(node) {
   return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || node.isContentEditable;
 }
 
-document.addEventListener("keydown", (event) => {
-  if (event.key === "/" && !event.ctrlKey && !event.metaKey && !event.altKey) {
-    if (isTyping(event.target) || document.querySelector("dialog[open]")) return;
-    event.preventDefault();
-    $("search").focus();
-  }
-  if (event.key === "Escape") {
-    document.querySelectorAll("dialog[open]").forEach(closeMask);
-  }
-});
+function initEvents() {
+  $("search").addEventListener("input", (event) => {
+    clearTimeout(searchTimer);
+    const value = event.target.value.trim();
+    searchTimer = setTimeout(() => {
+      state.search = value;
+      state.page = 1;
+      loadList({ direction: 0 });
+    }, 260);
+  });
 
-/* ---------- 启动 ---------- */
+  document.addEventListener("keydown", (event) => {
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
+      if ($("settingsMask").open) { event.preventDefault(); $("settingsSave").click(); return; }
+      if ($("editMask").open) { event.preventDefault(); $("editSave").click(); return; }
+    }
+    if (event.key === "/" && !event.ctrlKey && !event.metaKey && !event.altKey) {
+      if (isTyping(event.target) || document.querySelector("dialog[open]")) return;
+      event.preventDefault();
+      $("search").focus();
+    }
+  });
+
+  window.addEventListener("resize", () => {
+    moveInk(false);
+    placeScopeInk(null, false);
+  });
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") {
+      moveInk(false);
+      placeScopeInk(null, false);
+      refreshStatus();
+    }
+  });
+}
+
+/* ---------- 状态 ---------- */
+
+function setBadge(kind, text, title) {
+  const badge = $("status-badge");
+  badge.classList.remove("off", "warn");
+  if (kind) badge.classList.add(kind);
+  badge.title = title || text;
+  $("status-text").textContent = text;
+}
 
 async function refreshStatus() {
   try {
     const info = await req("ping");
     state.limit = info.limit || 200;
-    $("diag").textContent =
-      `自检 ok · ${info.rows} 条 · 梗库 ${info.wiki}\n` +
-      `${info.enabled ? (info.auto_learn ? "自动学习中" : "自动学习关闭") : "已停止"}` +
-      ` · 缓冲 ${info.buffer || 0}`;
-    return info;
+    let kind = "";
+    let text = "自动学习";
+    let title = "自动学习已开启";
+    if (!info.enabled) {
+      kind = "off";
+      text = "已停止";
+      title = "插件已停用：不学习也不注入";
+    } else if (!info.auto_learn) {
+      kind = "warn";
+      text = "只注入";
+      title = "自动学习已关闭，只做注入";
+    } else if (info.learning) {
+      text = "学习中";
+      title = "正在提取或自审";
+    }
+    setBadge(kind, text, title);
+    $("stat-line").textContent = `${fmtNum(info.rows)} 条 · 缓冲 ${fmtNum(info.buffer)}`;
+    $("foot-state").textContent =
+      `自检 ok · 手动 ${fmtNum(info.manual)} / 黑话 ${fmtNum(info.auto)} / 待审 ${fmtNum(info.pending)} / 梗百科 ${fmtNum(info.wiki)}` +
+      (info.learning ? " · 学习中" : "");
+    if (info.version) $("brand-version").textContent = `v${info.version}`;
+    if (state.statusDown) {
+      state.statusDown = false;
+      toast("自检恢复", "ok");
+    }
   } catch (error) {
-    $("diag").textContent = `自检失败：${error.message}`;
-    toast(error.message, "bad");
-    return null;
+    setBadge("off", "自检失败", error.message);
+    $("stat-line").textContent = "";
+    $("foot-state").textContent = `自检失败：${error.message}`;
+    if (!state.statusDown) {
+      state.statusDown = true;
+      toast(`自检失败：${error.message}`, "bad");
+    }
   }
 }
 
+/* ---------- 数据 ---------- */
+
+async function loadTree() {
+  const data = await req("tree");
+  data.buckets = data.buckets || [];
+  state.tree = data;
+  state.names = {};
+  data.buckets.forEach((bucket) => {
+    (bucket.subs || []).forEach((sub) => {
+      if (sub.scope && sub.name) state.names[sub.scope] = sub.name;
+    });
+  });
+  const keys = data.buckets.map((bucket) => bucket.key);
+  if (!keys.includes(state.bucket)) state.bucket = keys[0] || "manual";
+  if (state.scoped) {
+    const bucket = data.buckets.find((item) => item.key === state.bucket);
+    const subs = (bucket && bucket.subs) || [];
+    if (!subs.some((sub) => sub.scope === state.scope)) {
+      state.scoped = false;
+      state.scope = "";
+    }
+  }
+  renderTabs();
+  renderScopes();
+  syncListTools();
+  paintHead(false);
+}
+
+async function refresh() {
+  try {
+    await loadTree();
+  } catch (error) {
+    toast(`分类读取失败：${error.message}`, "bad");
+  }
+  await loadList({ direction: 0 });
+  await refreshStatus();
+}
+
+/* ---------- 启动 ---------- */
+
 async function boot() {
+  initTheme();
+  initTopbar();
+  initFullscreen();
+  initSortPicker();
+  initEvents();
+
   const params = new URLSearchParams(location.search);
   const wantBucket = params.get("bucket");
-  if (wantBucket) state.bucket = wantBucket;
+  if (wantBucket && ORDER.includes(wantBucket)) state.bucket = wantBucket;
+  if (params.get("new") === "1") state.bucket = "manual";
   if (params.has("scope")) {
     const raw = params.get("scope") || "";
     state.scope = raw === "__global__" ? "" : raw;
     state.scoped = true;
   }
-  await refreshStatus();
-  try { await loadTree(); } catch (error) { $("diag").textContent = `自检失败：${error.message}`; }
+  syncListTools();
+  paintHead(false);
+
   updateCounter();
-  try { await loadList(); } catch (error) {
-    $("list").innerHTML = `<div class="empty">列表读取失败：${esc(error.message)}</div>`;
+  await refreshStatus();
+  setInterval(() => {
+    if (document.visibilityState === "visible") refreshStatus();
+  }, 15000);
+
+  try {
+    await loadTree();
+  } catch (error) {
+    $("list-meta").textContent = "读取失败";
+    $("list").innerHTML = `<div class="blank-card">分类读取失败：${esc(error.message)}
+      <div class="blank-action"><button class="btn" data-variant="outline" data-size="sm" type="button" data-act="retry">重试</button></div>
+    </div>`;
+    return;
   }
-  if (params.get("new") === "1") openEditor(null);
-  if (params.get("settings") === "1") openSettings();
+
+  await loadList({ direction: 0 });
+  if (params.get("new") === "1" && state.bucket === "manual") openEditor(null);
+  else if (params.get("settings") === "1") openSettings();
 }
 
 boot();
