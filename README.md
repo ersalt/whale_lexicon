@@ -7,30 +7,16 @@
 黑话没命中时，还会用梗百科兜底注一句。
 
 
-## 部署到机器人
+## 在主项目里
 
-开发在这个仓库，机器人加载的是项目内的副本：
+本插件是 qq-bot-lite 的**内置插件**：主仓库 `plugins/whale_lexicon/` 是随项目分发的完整副本，
+含 tests/docs，方便其他人直接学习和一起跑测试。
 
-```
-D:\Dev\whale_lexicon                  ← 开发（独立仓库、独立发版）
-D:\Dev\qq-bot-lite\plugins\whale_lexicon   ← 部署副本（机器人实际加载）
-```
-
-同步：
-
-```powershell
-powershell -ExecutionPolicy Bypass -File tools\deploy-to-bot.ps1
-```
-
-脚本用 `robocopy /MIR`，排除 `.git`、`tests/`、`tools/`、`docs/` 和各类缓存，
-并在目标目录写一份 `.deployed.json`（版本、提交、时间），排查时对得上。
-改完代码要重启机器人，插件是加载时导入的。
-
-
-## 为什么单开一个项目
-
-词库、提取、审核这套逻辑跟具体机器人框架无关，塞进主仓库只会让两边都难维护。
-这里是独立的 git 仓库，主项目通过 `[extensions] dirs` 登记这个目录来加载。
+- 主要开发在插件自己的项目里进行，完成后把运行时源码 + tests + docs 同步到主仓库副本。
+- 启用/停用：主面板「插件」页；默认启用。
+- 测试：`python -m pytest plugins/whale_lexicon/tests -q`。
+- 用户文档：本 README；更完整的安装与设置说明见主项目 `docs/guide.md` 的「内置插件」。
+- 开发文档：主项目 `docs/development.md` 的插件章节，SDK/API 速查见 `docs/api.md`。
 
 ## 结构
 
@@ -58,8 +44,8 @@ whale_lexicon/
 5. 消息按 `learn_batch_size` 切批提取，批间歇 `learn_batch_delay_ms` 毫秒，
    单批超过 `learn_batch_timeout` 秒就跳过
 6. 全部批次都失败（超时/断网）会保留缓冲，5 分钟后重试；只要有一批成功就继续
-7. 合并候选 → 过滤拒绝词/空泛释义/同义反复 → 一次自审
-8. 自审通过且本批出现 ≥2 次的直接进黑话库；其余进待审，理由写进词条
+7. 合并候选 → 过滤拒绝词/空泛释义/同义反复（含只报身份的「群友 XXX 的昵称/ID」）→ 一次自审
+8. 自审通过且正文里出现 ≥2 次的直接进黑话库；其余进待审，理由写进词条
 
 ## 注入
 
@@ -88,7 +74,7 @@ whale_lexicon/
 
 两个地方都能改，读写的是同一份 `settings.toml`：
 
-- 插件页左下的「设置」按钮，点开是页内弹窗
+- 插件页顶栏的「设置」⚙ 按钮，点开是页内弹窗
 - 主面板「插件」→「设置」
 
 按分组排列；梗百科那几项只在启用梗百科时才出现。
@@ -104,7 +90,7 @@ whale_lexicon/
 | 自动学习 | `extract_extra_body` / `review_extra_body` | 只有选「自定义」才出现，填 JSON |
 | 注入 | `inject_max` / `max_meaning_chars` | 注入几条、单条多长 |
 | 候选过滤 | `reject_words` | 名字命中就丢，不送自审 |
-| 梗百科 | `wiki_enable` / `wiki_sync_enable` / `wiki_sync_time` / `wiki_sync_interval_days` | 侧栏分类、定时同步 |
+| 梗百科 | `wiki_enable` / `wiki_sync_enable` / `wiki_sync_time` / `wiki_sync_interval_days` | 页签分类、定时同步 |
 
 ### 关思考：跟原插件同一套七档
 
@@ -131,17 +117,26 @@ whale_lexicon/
 
 ## 面板
 
-访问 `/plugins/whale_lexicon/`。左边一张卡放分类，右边一张卡放列表，跟原插件
-`pages/yh/index.html` 是同一套结构；配色和控件用主面板的令牌。
+访问 `/plugins/whale_lexicon/`。跟主面板（`qq-bot-lite` 的 `docs/ui-spec.md`）同一套骨架：
+sticky 顶栏 + 页头 + 页内页签 + 一张白卡；分类是页签，群范围是页签下的筛选卡片，没有侧栏。
+这套骨架依赖主程序的新 `theme.css` 令牌、`.modal` 样式和 `ui.js` 的 `uiSelect`；
+主程序还是旧面板时继续用 0.5.x。
 
 ![待审](docs/panel.png)
 
-- 左栏：鲸语汇标题、四个分类（带条数）、按群展开（群名 + `[群号]` + 条数）、
-  底部自检 + 「设置」入口
-- 右栏：标题 + 条数、排序、搜索（`/` 聚焦）、`+ 手动录入`（只在「手动」出现）、
-  批量条（只在「待审」出现）、词条列表、翻页
-- 词条行：勾选框 | 名称 | 含义 + 关键词 + `来源 · 群 · ×次数 · 时间 · 理由` | 三个按钮
+- 顶栏：鲸语汇 + 版本、自检状态、设置 / 主题 / 全屏
+- 页头：分类标题 + 说明，右侧搜索（`/` 聚焦）和 `+ 手动录入`（只在「手动」出现）
+- 页签：手动 / 黑话库 / 待审 / 梗百科，带条数，选中项有 2px 下滑线
+- 范围卡片：收在一张白卡里，卡头是「范围 + 当前筛选」；下面是全部 / 全局 / 各群
+  （群名 + `[群号]` + 条数），和主面板模型配置方框同款，选中框用 `.entity-ink`
+  在卡片间滑动，角标「筛选中」
+- 白卡：条数 + 排序；「待审」有全选和批量通过/删除；下面是行式词条和翻页
+- 下拉框全部用主程序的 `uiSelect`（`#llm` 进阶设置「思考档位」同款），排序、录入作用域、
+  插件设置里的选项都是自绘菜单
+- 词条行：名称 | 含义 + 关键词 + `来源 · 群 · ×次数 · 时间 · 理由` | 通过/驳回 · 修改 · 删除
 - 梗百科的词条是只读的，按钮位显示「只读」
+- 手动录入同名词条：输入框标红 + 行内错误 + 聚焦全选，同时顶部错误通知
+- 通知用主面板的 `.toast-stack` / `.toast-item`：顶部居中、最多 3 条、点击或键盘可关
 - 页内「设置」弹窗和主面板的插件设置是同一份数据（同一个接口），改哪边都一样
 
 顺序跟原插件一致：**手动**（知识库）→ **黑话库**（学来的）→ **待审**（审查）→ **梗百科**（兜底），
@@ -150,6 +145,7 @@ whale_lexicon/
 ![设置](docs/panel-settings.png)
 ![梗百科](docs/panel-wiki.png)
 ![录入](docs/panel-add.png)
+![同名提示](docs/panel-duplicate.png)
 ![暗色](docs/panel-dark.png)
 
 ## 从 AstrBot 搬数据
@@ -177,7 +173,7 @@ python tools/import_from_astrbot.py \
 | 方法 | 路径 | 作用 |
 |---|---|---|
 | GET | `ping` | 自检：条数、缓冲、注入计数、版本 |
-| GET | `tree` | 侧栏：分类 + 按群计数 |
+| GET | `tree` | 页签和筛选条：分类 + 按群计数 |
 | GET | `list` | 分页列表（bucket / search / scope / scoped / page / size / sort） |
 | POST | `lookup` | 录入前查重 |
 | POST | `add` / `update` / `delete` | 增删改 |
@@ -187,15 +183,16 @@ python tools/import_from_astrbot.py \
 
 ## 开发
 
-跟着主程序的规范走（`docs/plugin-spec.md`），三件事：
+跟着主程序的规范走（主项目 `docs/development.md` 的插件章节 + `docs/plugin.md`），
+在主项目根目录执行：
 
 ```powershell
-python -m ruff check .          # 静态检查（E/W/F/B/I，行长 120）
-python -m pytest -q             # 11 个用例
-python -m app.pluginkit.check . # 规范自检（在 qq-bot-lite 目录下跑）
+.venv\Scripts\python.exe -m pytest plugins/whale_lexicon/tests -q
+.venv\Scripts\ruff.exe check plugins/whale_lexicon
+.venv\Scripts\python.exe -m app.pluginkit.check plugins/whale_lexicon
 ```
 
-CI（`.github/workflows/ci.yml`）在 GitHub 上跑 3.12/3.13 × Ubuntu/Windows。
+主项目 CI 会一并跑两个内置插件的测试；插件不再单独维护 GitHub Actions。
 
 ## 许可
 
